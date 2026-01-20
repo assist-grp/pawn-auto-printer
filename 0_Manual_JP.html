@@ -323,6 +323,18 @@
             align-items: flex-start;
         }
 
+        .callout-icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+
+        .callout-content {
+            flex: 1;
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+
         .callout-info {
             background: var(--primary-light);
             border: 1px solid #bfdbfe;
@@ -599,10 +611,17 @@
                     </div>
                 </div>
                 <div class="callout callout-info">
-                    💡 <strong>所要時間：</strong> 約2〜3分で完了します。黒い画面が表示されますので、完了するまでそのままお待ちください。
+                    <div class="callout-icon">💡</div>
+                    <div class="callout-content">
+                        <strong>所要時間：</strong> 約2〜3分で完了します。黒い画面が表示されますので、完了するまでそのままお待ちください。
+                        <br>最後に<strong>「何かキーを押すとこの画面を閉じます...」</strong>と表示されたら、キーボードのキーをどれか押して画面を閉じてください。
+                    </div>
                 </div>
                 <div class="callout callout-warning">
-                    ⚠️ <strong>完了後：</strong> 設定を正しく反映させるため、必ずパソコンを再起動してください。
+                    <div class="callout-icon">⚠️</div>
+                    <div class="callout-content">
+                        <strong>完了後：</strong> 設定を正しく反映させるため、必ずパソコンを再起動してください。
+                    </div>
                 </div>
             </div>
         </section>
@@ -669,7 +688,10 @@
                     </div>
                 </div>
                 <div class="callout callout-success">
-                    ✅ <strong>記憶機能：</strong> 一度選択したプリンターは、次回以降も自動的に選ばれます。
+                    <div class="callout-icon">✅</div>
+                    <div class="callout-content">
+                        <strong>記憶機能：</strong> 一度選択したプリンターは、次回以降も自動的に選ばれます。
+                    </div>
                 </div>
 
                 <h3>方法2：Windowsの設定で「既定」にする</h3>
@@ -705,7 +727,10 @@
                     </tbody>
                 </table>
                 <div class="callout callout-info">
-                    ✨ <strong>スマート機能：</strong> 印刷が完了したファイルは、ダウンロードフォルダを散らかさないよう自動的に削除されます。
+                    <div class="callout-icon">✨</div>
+                    <div class="callout-content">
+                        <strong>スマート機能：</strong> 印刷が完了したファイルは、ダウンロードフォルダを散らかさないよう自動的に削除されます。
+                    </div>
                 </div>
             </div>
         </section>
@@ -723,8 +748,11 @@
                 <p>フォルダ内の <span class="file-pill">unblock_files.bat</span> を実行してください。すべてのプログラムを一括で許可状態にします。</p>
 
                 <div class="callout callout-warning">
-                    💡 <strong>アンチウイルスソフト（Norton/McAfee等）をお使いの方へ</strong><br>
-                    まれに誤検知でファイルが削除されることがあります。その場合は「復元」し、対象フォルダを「除外設定（スキャン対象外）」に追加してください。
+                    <div class="callout-icon">💡</div>
+                    <div class="callout-content">
+                        <strong>アンチウイルスソフト（Norton/McAfee等）をお使いの方へ</strong><br>
+                        まれに誤検知でファイルが削除されることがあります。その場合は「復元」し、対象フォルダを「除外設定（スキャン対象外）」に追加してください。
+                    </div>
                 </div>
             </div>
         </section>
@@ -794,7 +822,10 @@
                     </div>
                 </div>
                 <div class="callout callout-info">
-                    💡 <span class="file-pill">config.json</span> は上書きせずにそのまま使うと、プリンター設定が維持されます。
+                    <div class="callout-icon">💡</div>
+                    <div class="callout-content">
+                        <span class="file-pill">config.json</span> は上書きせずにそのまま使うと、プリンター設定が維持されます。
+                    </div>
                 </div>
             </div>
         </section>

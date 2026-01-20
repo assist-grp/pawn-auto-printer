@@ -87,4 +87,5 @@ echo.
 echo If you see any errors above, please take a screenshot
 echo and share it for troubleshooting.
 echo.
-pause
+echo 何かキーを押すとこの画面を閉じます...
+pause >nul
