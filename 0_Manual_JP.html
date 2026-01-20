@@ -4,311 +4,848 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pawn PDF自動印刷アプリ 手順書</title>
+    <title>PDF Auto Printer - ユーザーガイド</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans+JP:wght@300;400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
 
         :root {
             --primary: #2563eb;
             --primary-dark: #1e40af;
-            --bg: #f8fafc;
-            --card-bg: #ffffff;
-            --text: #1e293b;
-            --text-light: #64748b;
-            --accent: #eff6ff;
-            --border: #e2e8f0;
-            --success: #22c55e;
+            --primary-light: #eff6ff;
+            --text-main: #0f172a;
+            --text-sub: #475569;
+            --bg-body: #ffffff;
+            --bg-sidebar: #f8fafc;
+            --border-color: #e2e8f0;
+            --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
+            --accent: #8b5cf6;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        html {
+            scroll-behavior: smooth;
         }
 
         body {
-            font-family: 'Inter', 'Noto Sans JP', sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            line-height: 1.6;
+            font-family: 'Outfit', 'Noto Sans JP', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
             margin: 0;
-            padding: 0;
+            display: flex;
+            min-height: 100vh;
         }
 
-        .container {
-            max-width: 850px;
-            margin: 40px auto;
-            padding: 0 20px;
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 280px;
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            position: fixed;
+            height: 100vh;
+            padding: 40px 24px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            z-index: 100;
         }
 
-        header {
-            text-align: center;
-            margin-bottom: 50px;
-            background: linear-gradient(135deg, #2563eb, #3b82f6);
-            padding: 60px 20px;
-            border-radius: 24px;
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 48px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-group {
+            margin-bottom: 32px;
+        }
+
+        .nav-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            margin-bottom: 12px;
+            padding: 0 12px;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: var(--text-sub);
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-link:hover {
+            background-color: var(--primary-light);
+            color: var(--primary);
+            transform: translateX(4px);
+        }
+
+        .nav-link.active {
+            background-color: var(--primary);
             color: white;
-            box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.2);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
         }
 
-        header h1 {
+        /* Main Content */
+        .main-content {
+            margin-left: 280px;
+            flex: 1;
+            padding: 80px 100px;
+            max-width: 1300px;
+        }
+
+        .hero {
+            margin-bottom: 80px;
+            position: relative;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin: 0 0 24px 0;
+            letter-spacing: -0.04em;
+            line-height: 1.1;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-sub);
             margin: 0;
-            font-size: 2.5rem;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        /* Quick Access Dashboard */
+        .quick-access {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-bottom: 80px;
+        }
+
+        .quick-card {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 24px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .quick-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--primary);
+            box-shadow: var(--card-shadow);
+        }
+
+        .quick-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--primary-light);
+            color: var(--primary);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .quick-card h3 {
+            margin: 0;
+            font-size: 1.1rem;
             font-weight: 700;
         }
 
-        header p {
-            font-size: 1.1rem;
-            opacity: 0.9;
-            margin-top: 15px;
+        .quick-card p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: var(--text-sub);
         }
 
-        .section {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 30px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-            border: 1px solid var(--border);
+        section {
+            margin-bottom: 120px;
+            scroll-margin-top: 80px;
         }
 
         h2 {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 40px;
             display: flex;
             align-items: center;
-            font-size: 1.5rem;
-            color: var(--primary);
-            margin-top: 0;
-            padding-bottom: 12px;
-            border-bottom: 2px solid var(--accent);
+            gap: 16px;
+            letter-spacing: -0.02em;
         }
 
-        h2 span.num {
-            background: var(--primary);
-            color: white;
-            width: 32px;
+        h2::before {
+            content: '';
+            width: 8px;
             height: 32px;
-            border-radius: 8px;
-            display: inline-flex;
-            justify-content: center;
-            align-items: center;
-            margin-right: 12px;
-            font-size: 1.1rem;
+            background: var(--primary);
+            border-radius: 4px;
         }
 
         h3 {
-            font-size: 1.2rem;
-            margin-top: 25px;
-            color: var(--text);
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin: 48px 0 24px 0;
+            color: var(--text-main);
         }
 
-        ul,
-        ol {
-            padding-left: 20px;
-        }
-
+        p,
         li {
-            margin-bottom: 12px;
+            font-size: 1.1rem;
+            color: #334155;
+            line-height: 1.8;
         }
 
-        code,
-        .file-name {
-            background-color: var(--accent);
-            color: var(--primary-dark);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: inherit;
-            font-weight: 600;
+        /* Visual Blocks */
+        .card {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            margin-bottom: 32px;
+            position: relative;
+            overflow: hidden;
         }
 
-        .important-box {
-            background-color: #fef2f2;
-            border-left: 4px solid var(--danger);
-            padding: 15px 20px;
-            margin: 20px 0;
-            border-radius: 0 8px 8px 0;
+        .card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary), transparent);
+            opacity: 0.1;
         }
 
-        .tip-box {
-            background-color: #ecfdf5;
-            border-left: 4px solid var(--success);
-            padding: 15px 20px;
-            margin: 20px 0;
-            border-radius: 0 8px 8px 0;
+        .step-list {
+            list-style: none;
+            padding: 0;
         }
 
-        .security-box {
-            background-color: #fff9db;
-            border-left: 4px solid var(--warning);
-            padding: 15px 20px;
-            margin: 20px 0;
-            border-radius: 0 8px 8px 0;
-        }
-
-        .step-card {
+        .step-item {
             display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-            padding: 15px;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            transition: transform 0.2s;
+            gap: 24px;
+            margin-bottom: 32px;
+            position: relative;
         }
 
-        .step-card:hover {
-            transform: translateX(5px);
-            border-color: var(--primary);
+        .step-item:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 19px;
+            top: 48px;
+            bottom: -16px;
+            width: 2px;
+            background: var(--border-color);
         }
 
         .step-number {
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            color: white;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             font-weight: 700;
+            flex-shrink: 0;
+            font-size: 1rem;
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 16px;
+        }
+
+        .badge-info {
+            background: #e0f2fe;
             color: var(--primary);
-            font-size: 1.1rem;
+        }
+
+        .badge-warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .callout {
+            padding: 24px 32px;
+            border-radius: 20px;
+            margin: 32px 0;
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .callout-info {
+            background: var(--primary-light);
+            border: 1px solid #bfdbfe;
+        }
+
+        .callout-warning {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+        }
+
+        .callout-danger {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+        }
+
+        .file-pill {
+            display: inline-block;
+            background: #f1f5f9;
+            color: #1e293b;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.9em;
+            font-weight: 600;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Mock UI Elements */
+        .mock-ui {
+            background: #f1f5f9;
+            border-radius: 16px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid var(--border-color);
+        }
+
+        .tray-mock {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: #ffffff;
+            padding: 10px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border: 1px solid #eee;
+        }
+
+        .tray-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--primary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+
+        .menu-mock {
+            width: 220px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 8px 0;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+            margin-top: 10px;
+        }
+
+        .menu-item {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: default;
+        }
+
+        .menu-item:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .menu-sep {
+            height: 1px;
+            background: #eee;
+            margin: 6px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: 32px 0;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        th {
+            background: var(--bg-sidebar);
+            padding: 16px 24px;
+            text-align: left;
+            font-weight: 700;
+            color: var(--text-sub);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border-color);
+            background: white;
+        }
+
+        tr:last-child td:first-child {
+            border-bottom-left-radius: 16px;
+        }
+
+        tr:last-child td:last-child {
+            border-bottom-right-radius: 16px;
         }
 
         footer {
+            margin-top: 120px;
+            padding: 60px 0;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-sub);
+            font-size: 0.95rem;
             text-align: center;
-            margin: 60px 0;
-            color: var(--text-light);
-            font-size: 0.9rem;
         }
 
-        @media (max-width: 600px) {
-            header h1 {
-                font-size: 1.8rem;
+        /* Glassmorphism background hints */
+        .glass-bg {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 40%;
+            height: 40%;
+            background: radial-gradient(circle at 100% 0%, var(--primary-light), transparent 70%);
+            z-index: -1;
+            opacity: 0.5;
+        }
+
+        @media (max-width: 1100px) {
+            .sidebar {
+                width: 80px;
+                padding: 40px 12px;
             }
 
-            .container {
-                margin: 20px auto;
+            .nav-label,
+            .nav-link span,
+            .logo span {
+                display: none;
             }
 
-            .section {
+            .main-content {
+                margin-left: 80px;
+                padding: 60px 40px;
+            }
+
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                position: relative;
+                width: 100%;
+                height: auto;
                 padding: 20px;
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 40px 24px;
+            }
+
+            .quick-access {
+                grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
 
 <body>
+    <div class="glass-bg"></div>
 
-    <div class="container">
-        <header>
-            <h1>PDF Auto Printer</h1>
-            <p>Pawn PDF自動印刷アプリ 手順書</p>
+    <nav class="sidebar">
+        <div class="logo">
+            <div class="tray-icon">🖨️</div>
+            <span>Auto Printer</span>
+        </div>
+
+        <div class="nav-group">
+            <div class="nav-label">Getting Started</div>
+            <a href="#intro" class="nav-link active"><span>はじめに</span></a>
+            <a href="#setup" class="nav-link"><span>セットアップ</span></a>
+            <a href="#startup" class="nav-link"><span>自動起動</span></a>
+        </div>
+
+        <div class="nav-group">
+            <div class="nav-label">Configuration</div>
+            <a href="#printer" class="nav-link"><span>プリンター選択</span></a>
+            <a href="#usage" class="nav-link"><span>使い方</span></a>
+        </div>
+
+        <div class="nav-group">
+            <div class="nav-label">Support</div>
+            <a href="#security" class="nav-link"><span>セキュリティ</span></a>
+            <a href="#trouble" class="nav-link"><span>困ったときは</span></a>
+            <a href="#update" class="nav-link"><span>更新方法</span></a>
+            <a href="#appendix" class="nav-link"><span>付録</span></a>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <header class="hero" id="intro">
+            <span class="badge badge-info">PDF Auto Printer Project</span>
+            <h1>スマート印刷<br>スタートガイド</h1>
+            <p>PDF/HTMLファイルの保存から印刷までを完全に自動化。業務効率を劇的に向上させるためのガイドです。</p>
         </header>
 
-        <div class="section">
-            <h2><span class="num">0</span>解凍（プログラムを取り出す）</h2>
-            <p>ダウンロードしたファイルが「ZIP形式（ジッパー付きフォルダ）」のままでは動きません。まず中身を取り出します。</p>
-            <ol>
-                <li>ダウンロードした <span class="file-name">pawn-auto-printer.zip</span> を <strong>「右クリック」</strong> します。</li>
-                <li>メニューから <strong>「すべて展開...」</strong> を選びます。</li>
-                <li>画面が表示されたら、そのまま <strong>「展開」</strong> ボタンを押します。</li>
-                <li>新しく作成された（ジッパーが付いていない）フォルダを開いてください。</li>
-            </ol>
-            <div class="tip-box">
-                ※ 取り出した後は、元の <code>pawn-auto-printer.zip</code> は削除しても大丈夫です。
-            </div>
+        <!-- Quick Access Dashboard -->
+        <div class="quick-access">
+            <a href="#setup" class="quick-card">
+                <div class="quick-icon">🚀</div>
+                <h3>かんたん導入</h3>
+                <p>install_all.batを実行するだけの3分セットアップ。</p>
+            </a>
+            <a href="#printer" class="quick-card">
+                <div class="quick-icon">🖨️</div>
+                <h3>プリンター選択</h3>
+                <p>右クリックメニューから出力先を自由に変更可能。</p>
+            </a>
+            <a href="#usage" class="quick-card">
+                <div class="quick-icon">📝</div>
+                <h3>自動ルール</h3>
+                <p>ファイル名に "PRINT_A4" を含めるだけ。</p>
+            </a>
         </div>
 
-        <div class="section">
-            <h2><span class="num">1</span>セットアップ（一括実行）</h2>
-            <ol>
-                <li>フォルダ内の <span class="file-name">install_all.bat</span> を <strong>「右クリック」</strong> して
-                    <strong>「管理者として実行」</strong> を選んでください。
-                </li>
-                <li>黒い画面が出て自動的にインストールが始まります。<strong>2〜3分ほどかかりますので、完了まで何もせずにお待ちください。</strong></li>
-                <li>「Setup Complete!」と表示されて動きが止まったら、何かキーを押して画面を閉じます。</li>
-            </ol>
-            <div class="important-box">
-                <strong>重要：</strong> 設定を反映させるため、完了後は必ず <strong>パソコンを一度再起動</strong> してください。
+        <!-- セットアップ -->
+        <section id="setup">
+            <h2>セットアップ</h2>
+            <div class="card">
+                <p>最初の準備は一度だけです。ファイルを解凍してインストールプログラムを実行してください。</p>
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-number">1</div>
+                        <div>
+                            <strong>ファイルの解凍</strong><br>
+                            ダウンロードした <span class="file-pill">pawn-auto-printer.zip</span>
+                            を右クリックし、「すべて展開」を選びます。解凍後のフォルダを開いてください。
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">2</div>
+                        <div>
+                            <strong>インストールの実行</strong><br>
+                            フォルダ内の <span class="file-pill">install_all.bat</span> を <strong>右クリック → 「管理者として実行」</strong>
+                            してください。
+                        </div>
+                    </div>
+                </div>
+                <div class="callout callout-info">
+                    💡 <strong>所要時間：</strong> 約2〜3分で完了します。黒い画面が表示されますので、完了するまでそのままお待ちください。
+                </div>
+                <div class="callout callout-warning">
+                    ⚠️ <strong>完了後：</strong> 設定を正しく反映させるため、必ずパソコンを再起動してください。
+                </div>
             </div>
-        </div>
+        </section>
 
-        <div class="section">
-            <h2><span class="num">2</span>自動起動とアイコンの設定</h2>
-            <p>再起動後、一度だけ以下の設定を行うと、次から自動で動くようになります。</p>
-            <ol>
-                <li><span class="file-name">create_desktop_shortcut.bat</span> をダブルクリックして実行します。</li>
-                <li>デスクトップに <strong>「PDF Auto Printer」</strong> アイコンが作成されます。</li>
-            </ol>
-            <div class="tip-box">
-                <strong>💡 ヒント：</strong>
-                アプリが起動すると、<strong>画面右下の時計の横（タスクトレイ）</strong>に、<strong>青と白のプリンターの形をしたアイコン</strong>が表示されます。<br>
-                ※ マウスを載せると「PDF Auto Printer」と表示されます。<br>
-                ※ アイコンが見当たらない場合は、<code>^</code> マークを押すと中に隠れていることがあります。
+        <!-- 自動起動 -->
+        <section id="startup">
+            <h2>自動起動の設定</h2>
+            <div class="card">
+                <p>再起動後、一度だけ以下の操作を行うと、毎日パソコンを起動した時にアプリが自動でバックグラウンドで動き始めます。</p>
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-number">1</div>
+                        <div>フォルダ内の <span class="file-pill">create_desktop_shortcut.bat</span> をダブルクリックして実行します。</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">2</div>
+                        <div>デスクトップに作成された <strong>「PDF Auto Printer」</strong> アイコンから一度アプリを起動します。</div>
+                    </div>
+                </div>
+                <div class="mock-ui">
+                    <strong>動作確認：</strong> 画面右下のタスクトレイ（時計の横）に以下のアイコンがあれば成功です。
+                    <div style="margin-top: 15px;">
+                        <div class="tray-mock">
+                            <div class="tray-icon">🖨️</div>
+                            <span style="font-size: 0.9rem; color: #64748b;">PDF Auto Printer (稼働中)</span>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
+        </section>
 
-        <div class="section">
-            <h2><span class="num">3</span>プリンターの選択（重要）</h2>
-            <p>印刷に使用するプリンターを自由に選べます。白黒印刷用の <strong>Brother 5210</strong> などを使いたい場合は以下の手順を行ってください。</p>
+        <!-- プリンター選択 -->
+        <section id="printer">
+            <h2>プリンターの選択</h2>
+            <div class="card">
+                <p>特定のプリンター（ラベル用、白黒専用など）を指定して印刷したい場合の設定です。</p>
 
-            <h3>方法1：アプリのメニューから選ぶ（推奨）</h3>
-            <div class="step-card">
-                <div class="step-number">1</div>
-                <div><strong>画面右下の時計の横（タスクトレイ）</strong>にあるプリンターアイコンを <strong>右クリック</strong> します。</div>
+                <h3>方法1：アプリのメニューから選ぶ（推奨）</h3>
+                <p>アプリに直接プリンターを記憶させる、最も確実な方法です。</p>
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-number">1</div>
+                        <div>タスクトレイのプリンターアイコンを <strong>右クリック</strong> します。</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">2</div>
+                        <div><strong>「Select Printer」</strong> メニューを開きます。</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">3</div>
+                        <div>一覧から使用したいプリンターを選んでクリックします。</div>
+                    </div>
+                </div>
+                <div class="mock-ui">
+                    <strong>メニューイメージ：</strong>
+                    <div class="menu-mock">
+                        <div class="menu-item">Select Printer <span>▶</span></div>
+                        <div class="menu-sep"></div>
+                        <div class="menu-item" style="padding-left: 32px;">✓ Default Printer</div>
+                        <div class="menu-item" style="padding-left: 32px;">Brother HL-L5210DN</div>
+                        <div class="menu-item" style="padding-left: 32px;">EPSON SC-P800</div>
+                        <div class="menu-sep"></div>
+                        <div class="menu-item">Quit</div>
+                    </div>
+                </div>
+                <div class="callout callout-success">
+                    ✅ <strong>記憶機能：</strong> 一度選択したプリンターは、次回以降も自動的に選ばれます。
+                </div>
+
+                <h3>方法2：Windowsの設定で「既定」にする</h3>
+                <p>特定のプリンターを指定せず、Windowsの標準プリンターとして設定する方法です。</p>
+                <ol>
+                    <li><strong>「設定」→「Bluetooth とデバイス」→「プリンターとスキャナー」</strong>を開きます。</li>
+                    <li>使用したいプリンターを選び、<strong>「既定として設定」</strong>ボタンを押します。</li>
+                </ol>
             </div>
-            <div class="step-card">
-                <div class="step-number">2</div>
-                <div><strong>「Select Printer」</strong> メニューを選びます。</div>
+        </section>
+
+        <!-- 使い方 -->
+        <section id="usage">
+            <h2>使い方</h2>
+            <div class="card">
+                <p>アプリ稼働中に、対象のファイル名（PDFまたはHTML）をダウンロードフォルダに保存するだけで自動印刷が開始されます。</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ファイル名に含む文字</th>
+                            <th>印刷サイズ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="file-pill">PRINT_A4</span></td>
+                            <td>A4サイズ（普通紙・請求書など）</td>
+                        </tr>
+                        <tr>
+                            <td><span class="file-pill">PRINT_A5</span></td>
+                            <td>A5サイズ（質札）</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="callout callout-info">
+                    ✨ <strong>スマート機能：</strong> 印刷が完了したファイルは、ダウンロードフォルダを散らかさないよう自動的に削除されます。
+                </div>
             </div>
-            <div class="step-card">
-                <div class="step-number">3</div>
-                <div>一覧から使用したいプリンターをクリックして選択します。</div>
+        </section>
+
+        <!-- セキュリティ -->
+        <section id="security">
+            <h2>セキュリティ対策</h2>
+            <div class="card">
+                <p>Windowsのセキュリティ機能により、アプリの動作が制限される場合の対処法です。</p>
+
+                <h3>「PCが保護されました」と表示される</h3>
+                <p><strong>「詳細情報」→「実行」</strong>の順にクリックしてください。このアプリは安全です。</p>
+
+                <h3>動作がブロックされる場合</h3>
+                <p>フォルダ内の <span class="file-pill">unblock_files.bat</span> を実行してください。すべてのプログラムを一括で許可状態にします。</p>
+
+                <div class="callout callout-warning">
+                    💡 <strong>アンチウイルスソフト（Norton/McAfee等）をお使いの方へ</strong><br>
+                    まれに誤検知でファイルが削除されることがあります。その場合は「復元」し、対象フォルダを「除外設定（スキャン対象外）」に追加してください。
+                </div>
             </div>
-            <p>※ 一度設定すれば、アプリを再起動してもそのプリンターが自動で選ばれます。</p>
+        </section>
 
-            <h3 style="margin-top: 30px;">方法2：Windows 11 の設定で「既定」にする</h3>
-            <p>アプリで設定を行わず、Windows全体の「通常使うプリンター」を使いたい場合の手順です。</p>
-            <ol>
-                <li>画面下の <strong>「スタートボタン」</strong> を押し、<strong>「設定（歯車マーク）」</strong> を開きます。</li>
-                <li>左側のメニューから <strong>「Bluetooth とデバイス」</strong> を選び、<strong>「プリンターとスキャナー」</strong> をクリックします。</li>
-                <li>一覧から <strong>「Brother HL-L5210DN」</strong>（またはお使いのプリンター名）を探してクリックします。</li>
-                <li>右上の <strong>「既定として設定」</strong> ボタンを押します。</li>
-            </ol>
-            <div class="tip-box">
-                ※ ボタンが表示されない場合は、一つ手前の画面で「Windows で通常使うプリンターを管理する」を <strong>オフ</strong> にしてから再度試してください。
-            </div>
-        </div>
-
-        <div class="section">
-            <h2><span class="num">4</span>使い方</h2>
-            <p>アプリが動いている状態で、以下の名前でファイルをダウンロードするだけで自動印刷されます。</p>
-            <ul>
-                <li><strong>PRINT_A4</strong>.pdf / .html → <strong>A4</strong> で印刷</li>
-                <li><strong>PRINT_A5</strong>.pdf / .html → <strong>A5</strong> で印刷</li>
-            </ul>
-            <div class="tip-box">
-                <strong>💡 ポイント：</strong>
-                印刷成功後、ダウンロードフォルダ内のファイルは <strong>自動的に削除</strong> されます。
-            </div>
-        </div>
-
-        <div class="section">
-            <h2>🔒 セキュリティ対策について</h2>
-            <p>Windowsやセキュリティソフト（Nortonなど）が警告を出す場合の対処法です。</p>
-
-            <h3>ファイルの「ブロック解除」</h3>
-            <p>フォルダ内の各ファイルを <strong>右クリック → プロパティ → 「ブロックの解除」にチェック</strong> してOKを押してください。</p>
-            <div class="tip-box">
-                ※ <code>unblock_files.bat</code> を実行すると一括で解除できます。
-            </div>
-
-            <h3>アンチウイルスソフト（Nortonなど）</h3>
-            <p>「リスクが高い」と出ても安全ですので、<strong>「許可する」</strong> または <strong>「復元」</strong> してスキャン対象から除外してください。</p>
-        </div>
-
-        <div class="section">
+        <!-- トラブルシューティング -->
+        <section id="trouble">
             <h2>困ったときは</h2>
-            <ul>
-                <li><strong>check_status.bat</strong>: 動作状況とエラーを確認します。</li>
-                <li><strong>stop_printer.bat</strong>: アプリを完全に停止します。</li>
-                <li><strong>manual_test.bat</strong>: 特定のファイルを今すぐ印刷テストします。</li>
-                <li><strong>emergency_stop.bat</strong>: 万が一PCが重くなった際に全停止します。</li>
-            </ul>
-        </div>
+            <div class="card">
+                <p>印刷が始まらない、アプリが見当たらないなどのトラブルの際のチェック項目です。</p>
+
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-number">1</div>
+                        <div>
+                            <strong>アイコンを探す</strong><br>
+                            タスクトレイ（時計の横）に見当たらない場合、<strong>「∧」マーク</strong>の中に隠れていることがあります。ドラッグして見える位置に移動できます。
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">2</div>
+                        <div>
+                            <strong>ログを確認する</strong><br>
+                            フォルダ内の <span class="file-pill">printer_log.txt</span> を開くと、エラーの内容が記録されています。
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; margin-top: 40px;">
+                    <div class="quick-card" style="padding: 20px;">
+                        <div class="badge badge-info">Status</div>
+                        <p><strong>動作チェック</strong><br><span class="file-pill">check_status.bat</span></p>
+                    </div>
+                    <div class="quick-card" style="padding: 20px;">
+                        <div class="badge badge-success">Test</div>
+                        <p><strong>印刷テスト</strong><br><span class="file-pill">manual_test.bat</span></p>
+                    </div>
+                    <div class="quick-card" style="padding: 20px;">
+                        <div class="badge badge-warning">Stop</div>
+                        <p><strong>アプリ停止</strong><br><span class="file-pill">stop_printer.bat</span></p>
+                    </div>
+                    <div class="quick-card" style="padding: 20px;">
+                        <div class="badge badge-danger">Reset</div>
+                        <p><strong>緊急全停止</strong><br><span class="file-pill">emergency_stop.bat</span></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- アプリの更新 -->
+        <section id="update">
+            <h2>アプリの更新方法</h2>
+            <div class="card">
+                <p>新しいバージョンのアプリ（auto_printer.py など）が届いた際の手順です。</p>
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-number">1</div>
+                        <div><span class="file-pill">stop_printer.bat</span> を実行して、今のアプリを止めます。</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">2</div>
+                        <div>新しいファイルを現在のフォルダに上書きコピーします。</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">3</div>
+                        <div>デスクトップのショートカットから再起動してください。</div>
+                    </div>
+                </div>
+                <div class="callout callout-info">
+                    💡 <span class="file-pill">config.json</span> は上書きせずにそのまま使うと、プリンター設定が維持されます。
+                </div>
+            </div>
+        </section>
+
+        <!-- 手動インストール -->
+        <section id="appendix">
+            <h2>付録：手動での導入手順</h2>
+            <div class="card" style="background-color: var(--bg-sidebar); border-style: dashed;">
+                <p>自動セットアップが失敗する場合のみ、以下のツールを個別にインストールしてください。</p>
+                <div style="display: flex; gap: 40px; margin-top: 20px;">
+                    <div>
+                        <strong>1. Python</strong><br>
+                        <a href="https://www.python.org/downloads/windows/">公式サイト</a>からダウンロード。<br>
+                        <small>※「Add Python to PATH」に必ずチェック</small>
+                    </div>
+                    <div>
+                        <strong>2. SumatraPDF</strong><br>
+                        <a href="https://www.sumatrapdfreader.org/">公式サイト</a>からダウンロード。<br>
+                        <small>※64-bit installer推奨</small>
+                    </div>
+                </div>
+            </div>
+        </section>
 
         <footer>
-            &copy; 2026 PDF Auto Printer Project.
+            <p>&copy; 2026 PDF Auto Printer Project - Reliable Office Solutions</p>
         </footer>
-    </div>
+    </main>
 
+    <script>
+        // Enhanced active state for navigation
+        const sections = document.querySelectorAll('section, header');
+        const navLinks = document.querySelectorAll('.nav-link');
+
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                if (pageYOffset >= sectionTop - 150) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href').substring(1) === current) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
 </body>
 
 </html>

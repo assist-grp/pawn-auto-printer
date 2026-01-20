@@ -56,6 +56,7 @@ class PDFHandler(FileSystemEventHandler):
         super().__init__()
         self.processed_files = set()  # Track processed files to avoid duplicates
         self.processing_lock = {}  # Lock to prevent concurrent processing
+        self.icon = None  # Reference to tray icon for notifications
     
     def on_created(self, event):
         if event.is_directory:
@@ -146,9 +147,14 @@ class PDFHandler(FileSystemEventHandler):
                     return
 
             # PDFの印刷実行
+            if self.icon:
+                self.icon.notify(f"印刷を開始します: {filename}", "PDF Auto Printer")
+            
             success = self.print_pdf(target_pdf, paper_size)
             
             if success:
+                if self.icon:
+                    self.icon.notify(f"印刷完了: {filename}", "PDF Auto Printer")
                 # 印刷成功後、元のファイルを削除
                 try:
                     if os.path.exists(file_path):
@@ -292,6 +298,9 @@ if __name__ == "__main__":
                 config["target_printer"] = printer_name
                 save_config(config)
                 logging.info(f"PRINTER SELECTED: {printer_name}")
+                if icon:
+                    display_name = printer_name if printer_name else "Default Printer"
+                    icon.notify(f"プリンターを変更しました: {display_name}", "PDF Auto Printer")
                 # Re-create menu to update checkmarks
                 icon.menu = build_menu()
             return inner
@@ -330,6 +339,7 @@ if __name__ == "__main__":
             try:
                 image = Image.open(icon_path)
                 icon = Icon("PDFAutoPrinter", image, "PDF Auto Printer", build_menu())
+                event_handler.icon = icon  # Give handler access to icon for notifications
                 icon.run()
             except Exception as e:
                 logging.error(f"Failed to load tray icon: {e}")
