@@ -8,6 +8,7 @@ from watchdog.events import FileSystemEventHandler
 import threading
 from PIL import Image
 from pystray import Icon, Menu, MenuItem
+import win32print
 
 # 設定の読み込み
 CONFIG_FILE = "config.json"
@@ -17,10 +18,18 @@ def load_config():
         return {
             "watch_directory": os.path.join(os.environ["USERPROFILE"], "Downloads"),
             "sumatra_path": r"C:\Program Files\SumatraPDF\SumatraPDF.exe",
-            "log_file": "printer_log.txt"
+            "log_file": "printer_log.txt",
+            "target_printer": None
         }
     with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+        data = json.load(f)
+        if "target_printer" not in data:
+            data["target_printer"] = None
+        return data
+
+def save_config(new_config):
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(new_config, f, indent=4, ensure_ascii=False)
 
 config = load_config()
 
@@ -231,11 +240,17 @@ class PDFHandler(FileSystemEventHandler):
         # SumatraPDFコマンドの構築
         command = [
             sumatra_path,
-            "-print-to-default",
+            "-print-to-default" if not config.get("target_printer") else "-print-to",
+        ]
+        
+        if config.get("target_printer"):
+            command.append(config["target_printer"])
+            
+        command.extend([
             "-print-settings", f"paper={paper_size},simplex",
             "-silent",
             file_path
-        ]
+        ])
 
         try:
             subprocess.run(command, check=True)
@@ -271,11 +286,50 @@ if __name__ == "__main__":
     def create_tray_icon():
         # Use PNG for tray icon (better transparency)
         icon_path = "app_icon.png"
+        
+        def set_printer(printer_name):
+            def inner(icon, item):
+                config["target_printer"] = printer_name
+                save_config(config)
+                logging.info(f"PRINTER SELECTED: {printer_name}")
+                # Re-create menu to update checkmarks
+                icon.menu = build_menu()
+            return inner
+
+        def build_menu():
+            try:
+                # Get list of printers
+                printers = [p[2] for p in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS)]
+                
+                printer_items = []
+                # Default option
+                printer_items.append(MenuItem(
+                    "Default Printer", 
+                    set_printer(None), 
+                    checked=lambda item: config.get("target_printer") is None
+                ))
+                
+                # List of printers
+                for p in printers:
+                    printer_items.append(MenuItem(
+                        p, 
+                        set_printer(p), 
+                        checked=lambda item, p=p: config.get("target_printer") == p
+                    ))
+                
+                return Menu(
+                    MenuItem('Select Printer', Menu(*printer_items)),
+                    Menu.SEPARATOR,
+                    MenuItem('Quit', quit_app)
+                )
+            except Exception as e:
+                logging.error(f"Failed to build printer menu: {e}")
+                return Menu(MenuItem('Quit', quit_app))
+
         if os.path.exists(icon_path):
             try:
                 image = Image.open(icon_path)
-                menu = Menu(MenuItem('Quit', quit_app))
-                icon = Icon("PDFAutoPrinter", image, "PDF Auto Printer", menu)
+                icon = Icon("PDFAutoPrinter", image, "PDF Auto Printer", build_menu())
                 icon.run()
             except Exception as e:
                 logging.error(f"Failed to load tray icon: {e}")
