@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# Environment
+.env
+
+# Windows logs and temp files
+printer_log.txt
+*.pdf
+*.tmp
+*.html.pdf
+
+# Local config (Ignore if it contains sensitive paths, or keep if generic)
+# config.json
+
+# Zip files
+*.zip
+
+# VS Code
+.vscode/

@@ -1,0 +1,266 @@
+import os
+import time
+import json
+import subprocess
+import logging
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+
+# 設定の読み込み
+CONFIG_FILE = "config.json"
+
+def load_config():
+    if not os.path.exists(CONFIG_FILE):
+        return {
+            "watch_directory": os.path.join(os.environ["USERPROFILE"], "Downloads"),
+            "sumatra_path": r"C:\Program Files\SumatraPDF\SumatraPDF.exe",
+            "log_file": "printer_log.txt"
+        }
+    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+config = load_config()
+
+# ログの設定
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(message)s',
+    handlers=[
+        logging.FileHandler(config.get("log_file", "printer_log.txt"), encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+
+def log_info(message):
+    """Log message in ASCII to avoid encoding issues"""
+    try:
+        logging.info(message)
+    except:
+        # Fallback to ASCII-only
+        logging.info(message.encode('ascii', 'replace').decode('ascii'))
+
+class PDFHandler(FileSystemEventHandler):
+    def __init__(self):
+        super().__init__()
+        self.processed_files = set()  # Track processed files to avoid duplicates
+        self.processing_lock = {}  # Lock to prevent concurrent processing
+    
+    def on_created(self, event):
+        if event.is_directory:
+            return
+        
+        filename = os.path.basename(event.src_path)
+        # 変換用の一時ファイル (*.html.pdf) は無視する
+        if filename.lower().endswith(".html.pdf"):
+            return
+            
+        logging.info(f"FILE CREATED: {filename}")
+        if filename.lower().endswith((".pdf", ".html")):
+            # 待機時間をさらに短縮 (0.5s -> 0.1s)
+            time.sleep(0.1)
+            self.process_file(event.src_path, filename)
+    
+    def on_moved(self, event):
+        """Handle file rename/move events (e.g., .tmp -> .pdf/html)"""
+        if event.is_directory:
+            return
+        
+        dest_filename = os.path.basename(event.dest_path)
+        # 変換用の一時ファイル (*.html.pdf) は無視する
+        if dest_filename.lower().endswith(".html.pdf"):
+            return
+            
+        logging.info(f"FILE MOVED/RENAMED: {os.path.basename(event.src_path)} -> {dest_filename}")
+        
+        if dest_filename.lower().endswith((".pdf", ".html")):
+            # 待機時間をさらに短縮 (0.5s -> 0.1s)
+            time.sleep(0.1)
+            self.process_file(event.dest_path, dest_filename)
+    
+    def on_modified(self, event):
+        if event.is_directory:
+            return
+        
+        filename = os.path.basename(event.src_path)
+        if filename.lower().endswith((".pdf", ".html")):
+            # Modified events fire multiple times, so we skip them
+            # to avoid duplicate printing
+            pass
+
+    def process_file(self, file_path, filename):
+        # Avoid processing the same file multiple times
+        if file_path in self.processed_files:
+            logging.info(f"ALREADY PROCESSED: {filename}")
+            return
+        
+        # Check if file is currently being processed
+        if file_path in self.processing_lock:
+            logging.info(f"CURRENTLY PROCESSING: {filename}")
+            return
+        
+        # Check if file still exists
+        if not os.path.exists(file_path):
+            logging.info(f"FILE NO LONGER EXISTS: {filename}")
+            return
+        
+        # Mark as being processed
+        self.processing_lock[file_path] = True
+        self.processed_files.add(file_path)
+        
+        paper_size = None
+        
+        # Match filenames (Case-insensitive)
+        upper_filename = filename.upper()
+        if "PRINT_A4" in upper_filename:
+            paper_size = "A4"
+        elif "PRINT_A5" in upper_filename:
+            paper_size = "A5"
+        
+        if paper_size:
+            logging.info(f"DETECTED: {filename} -> Target paper size {paper_size}")
+            
+            target_pdf = file_path
+            is_html = filename.lower().endswith(".html")
+            
+            # HTMLの場合はPDFに変換
+            if is_html:
+                temp_pdf = file_path + ".pdf"
+                logging.info(f"CONVERTING HTML TO PDF: {filename}")
+                if self.convert_html_to_pdf(file_path, temp_pdf):
+                    target_pdf = temp_pdf
+                else:
+                    logging.error(f"CONVERSION FAILED: {filename}")
+                    if file_path in self.processing_lock: del self.processing_lock[file_path]
+                    return
+
+            # PDFの印刷実行
+            success = self.print_pdf(target_pdf, paper_size)
+            
+            if success:
+                # 印刷成功後、元のファイルを削除
+                try:
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                        logging.info(f"ORIGINAL FILE DELETED: {file_path}")
+                        # 削除に成功したら、processed_filesからも削除する（再ダウンロード時に印刷できるようにするため）
+                        if file_path in self.processed_files:
+                            self.processed_files.remove(file_path)
+                except Exception as e:
+                    logging.error(f"Failed to delete original file: {e}")
+                
+                # HTMLから作成した一時PDFも削除
+                if is_html and os.path.exists(target_pdf):
+                    try:
+                        os.remove(target_pdf)
+                        logging.info(f"TEMP PDF DELETED: {target_pdf}")
+                    except Exception as e:
+                        logging.error(f"Failed to delete temp pdf: {e}")
+        else:
+            logging.info(f"SKIPPED: {filename} (filename does not match)")
+            # マッチしなかった場合もロックと処理済みリストから外す（将来的に同じ名前のファイルが来る可能性があるため）
+            if file_path in self.processed_files:
+                self.processed_files.remove(file_path)
+        
+        # Remove from processing lock
+        if file_path in self.processing_lock:
+            del self.processing_lock[file_path]
+
+    def convert_html_to_pdf(self, html_path, pdf_path):
+        edge_path = config.get("edge_path", r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
+        
+        # Edgeのパスを探す
+        if not os.path.exists(edge_path):
+            possible_paths = [
+                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+                r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+                os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "Edge\Application\msedge.exe"),
+            ]
+            for p in possible_paths:
+                if os.path.exists(p):
+                    edge_path = p
+                    break
+            else:
+                logging.error("ERROR: Microsoft Edge not found.")
+                return False
+
+        command = [
+            edge_path,
+            "--headless=new",
+            "--disable-gpu",
+            f"--print-to-pdf={pdf_path}",
+            "--no-margins",
+            "--include-background",
+            "--run-all-compositor-stages-before-draw",
+            "--virtual-time-budget=2000",  # 5sから2sに短縮（これ以上短いとCSSが反映されない可能性あり）
+            f"file:///{os.path.abspath(html_path).replace('\\', '/')}"
+        ]
+        
+        try:
+            subprocess.run(command, check=True, timeout=60)
+            return True
+        except Exception as e:
+            logging.error(f"Edge Conversion Error: {e}")
+            return False
+
+    def print_pdf(self, file_path, paper_size):
+        sumatra_path = config.get("sumatra_path")
+        
+        # SumatraPDFのパスを探す
+        if not os.path.exists(sumatra_path):
+            # 一般的なインストール場所を検索
+            possible_paths = [
+                r"C:\Program Files\SumatraPDF\SumatraPDF.exe",
+                r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe",
+                os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WindowsApps", "SumatraPDF.exe"),
+            ]
+            
+            for path in possible_paths:
+                if os.path.exists(path):
+                    sumatra_path = path
+                    logging.info(f"SumatraPDF found: {sumatra_path}")
+                    break
+            else:
+                logging.error(f"ERROR: SumatraPDF not found. Checked locations:")
+                for path in possible_paths:
+                    logging.error(f"  - {path}")
+                return False
+
+        # SumatraPDFコマンドの構築
+        command = [
+            sumatra_path,
+            "-print-to-default",
+            "-print-settings", f"paper={paper_size},simplex",
+            "-silent",
+            file_path
+        ]
+
+        try:
+            subprocess.run(command, check=True)
+            logging.info(f"PRINT SUCCESS: {file_path}")
+            return True
+        except subprocess.CalledProcessError as e:
+            logging.error(f"PRINT FAILED: {e}")
+            return False
+
+if __name__ == "__main__":
+    path = config.get("watch_directory")
+    if not os.path.exists(path):
+        logging.error(f"ERROR: Watch directory does not exist: {path}")
+        # Try default Downloads folder
+        path = os.path.join(os.environ["USERPROFILE"], "Downloads")
+        logging.info(f"Using default Downloads folder: {path}")
+
+    event_handler = PDFHandler()
+    observer = Observer()
+    observer.schedule(event_handler, path, recursive=False)
+    
+    logging.info(f"Started monitoring: {path}")
+    logging.info("Press Ctrl+C to stop.")
+    
+    observer.start()
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        observer.stop()
+    observer.join()
