@@ -5,6 +5,9 @@ import subprocess
 import logging
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+import threading
+from PIL import Image
+from pystray import Icon, Menu, MenuItem
 
 # 設定の読み込み
 CONFIG_FILE = "config.json"
@@ -258,9 +261,37 @@ if __name__ == "__main__":
     logging.info("Press Ctrl+C to stop.")
     
     observer.start()
+
+    # System Tray Icon Setup
+    def quit_app(icon, item):
+        logging.info("Stopping observer...")
+        observer.stop()
+        icon.stop()
+
+    def create_tray_icon():
+        # Use PNG for tray icon (better transparency)
+        icon_path = "app_icon.png"
+        if os.path.exists(icon_path):
+            try:
+                image = Image.open(icon_path)
+                menu = Menu(MenuItem('Quit', quit_app))
+                icon = Icon("PDFAutoPrinter", image, "PDF Auto Printer", menu)
+                icon.run()
+            except Exception as e:
+                logging.error(f"Failed to load tray icon: {e}")
+                # Keep running without tray icon if loading fails
+                while observer.is_alive():
+                    time.sleep(1)
+        else:
+            logging.warning("app_icon.png not found, running without tray icon.")
+            while observer.is_alive():
+                time.sleep(1)
+
     try:
-        while True:
-            time.sleep(1)
+        # Start tray icon in main thread (some OS require this)
+        # Observer is already running in its own thread
+        create_tray_icon()
     except KeyboardInterrupt:
         observer.stop()
+    
     observer.join()

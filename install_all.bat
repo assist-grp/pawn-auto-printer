@@ -55,7 +55,7 @@ echo Step 3: Installing Python library (watchdog)
 echo ==========================================
 echo Note: This may fail if Python path is not yet updated.
 echo If it fails, it will be installed automatically on first run.
-python -m pip install watchdog
+python -m pip install watchdog pystray Pillow
 echo.
 
 echo ==========================================
