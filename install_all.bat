@@ -61,7 +61,7 @@ echo.
 echo ==========================================
 echo Step 4: Setting up auto-start
 echo ==========================================
-powershell -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\PDFAutoPrinter.lnk');$s.TargetPath='%~dp0run_printer.bat';$s.WorkingDirectory='%~dp0';$s.Save()"
+powershell -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\PDFAutoPrinter.lnk');$s.TargetPath='%~dp0start_hidden.vbs';$s.WorkingDirectory='%~dp0';$s.Save()"
 if %errorlevel% equ 0 (
     echo Auto-start shortcut created successfully.
 ) else (

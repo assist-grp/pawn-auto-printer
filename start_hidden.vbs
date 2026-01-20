@@ -14,9 +14,7 @@ For Each objProcess In colProcesses
 Next
 
 If isRunning Then
-    ' Already running - show notification
-    Set objNotification = CreateObject("WScript.Shell")
-    objNotification.Popup "PDF Auto Printer is already running in background!", 3, "Auto Printer", 64
+    ' Already running - do nothing (avoid popups that trigger security warnings)
 Else
     ' Not running - start it
     ' Get the directory where this script is located
@@ -27,8 +25,4 @@ Else
     
     ' Run pythonw (no console window) with auto_printer.py
     objShell.Run "pythonw auto_printer.py", 0, False
-    
-    ' Show a brief notification
-    Set objNotification = CreateObject("WScript.Shell")
-    objNotification.Popup "PDF Auto Printer started!", 2, "Auto Printer", 64
 End If
