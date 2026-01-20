@@ -22,6 +22,14 @@ if %errorlevel% neq 0 (
 echo Administrator check: OK
 echo.
 
+echo ==========================================
+echo Step 0: Unblocking files
+echo ==========================================
+echo This avoids "Security Warning" popups during installation.
+powershell -Command "Get-ChildItem -Recurse | Unblock-File"
+echo Files unblocked: OK
+echo.
+
 :: Check if winget exists
 echo Checking for winget...
 where winget >nul 2>&1
