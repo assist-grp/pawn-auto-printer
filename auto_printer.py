@@ -211,32 +211,43 @@ class PDFHandler(FileSystemEventHandler):
                 del self.processing_lock[file_path]
 
     def convert_html_to_pdf(self, html_path, pdf_path):
-        edge_path = config.get("edge_path", r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
+        # ブラウザのパスを探す (Edge -> Chromeの順)
+        browser_path = config.get("browser_path")
         
-        # Edgeのパスを探す
-        if not os.path.exists(edge_path):
+        if not browser_path or not os.path.exists(browser_path):
             possible_paths = [
+                # Edge
                 r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
                 r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
                 os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "Edge\Application\msedge.exe"),
+                # Chrome (Added support)
+                r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+                os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome\Application\chrome.exe"),
             ]
             for p in possible_paths:
                 if os.path.exists(p):
-                    edge_path = p
+                    browser_path = p
+                    logging.info(f"Browser found: {browser_path}")
                     break
             else:
-                logging.error("ERROR: Microsoft Edge not found.")
+                logging.error(f"ERROR: No compatible browser (Edge/Chrome) found.")
                 return False
+        
+        # Save found browser to config for next time
+        if browser_path != config.get("browser_path"):
+            config["browser_path"] = browser_path
+            save_config(config)
 
         command = [
-            edge_path,
+            browser_path,
             "--headless=new",
             "--disable-gpu",
             f"--print-to-pdf={pdf_path}",
             "--no-margins",
             "--include-background",
             "--run-all-compositor-stages-before-draw",
-            "--virtual-time-budget=500",  # 2000ms -> 500msに短縮（高速化優先）
+            # "--virtual-time-budget=500",  # 完全に削除して最速化（読み込み完了次第すぐ出力）
             f"file:///{os.path.abspath(html_path).replace('\\', '/')}"
         ]
         
