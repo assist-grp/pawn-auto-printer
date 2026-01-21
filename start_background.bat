@@ -1,5 +1,5 @@
 @echo off
-cd /d %~dp0
+cd /d "%~dp0"
 
 REM Start the Python script hidden in background
 start /B pythonw auto_printer.py

@@ -29,8 +29,8 @@ echo.
 set "INSTALL_DIR=%SystemDrive%\pawn-auto-printer"
 
 :: Remove trailing backslash if present (for comparison)
-if "%CD:~-1%"=="\" set "CURRENT_DIR=%CD:~0,-1%"
-if not "%CD:~-1%"=="\" set "CURRENT_DIR=%CD%"
+set "CURRENT_DIR=%CD%"
+if "%CURRENT_DIR:~-1%"=="\" set "CURRENT_DIR=%CURRENT_DIR:~0,-1%"
 
 if /i "%CURRENT_DIR%" neq "%INSTALL_DIR%" (
     echo ==========================================
