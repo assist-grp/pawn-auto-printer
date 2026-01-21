@@ -156,9 +156,17 @@ Write-Host ""
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "           Setup Complete!                " -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host "Please RESTART your computer."
-Write-Host "The app will start automatically after reboot."
+Write-Host "Starting the application..."
+try {
+    # Start the VBS script to run in background
+    Start-Process "wscript.exe" -ArgumentList "`"$InstallDir\start_hidden.vbs`""
+    Write-Host "Application started successfully." -ForegroundColor Green
+} catch {
+    Write-Host "[WARNING] Could not auto-start. Please run manual_start.bat or reboot." -ForegroundColor Yellow
+}
+
 Write-Host ""
+Write-Host "Opening installation folder..."
 Invoke-Item $InstallDir
 Write-Host "Press Enter to exit..."
 Read-Host

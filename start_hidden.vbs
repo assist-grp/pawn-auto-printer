@@ -22,33 +22,44 @@ If isRunning Then
     ' Already running - do nothing
 Else
     ' Try to launch with different python commands
-    ' "py -w" is the safest if installed (Windows Launcher)
-    ' "pythonw" is standard
-    
     On Error Resume Next
     
-    ' Priority 1: py.exe (Standard Windows Launcher)
+    ' Priority 1: py.exe -w (Standard Windows Launcher)
     err.Clear
     objShell.Run "py -w auto_printer.py", 0, False
     If Err.Number = 0 Then WScript.Quit
     
-    ' Priority 2: pythonw.exe ( PATH based)
+    ' Priority 2: pythonw.exe (PATH based)
     err.Clear
     objShell.Run "pythonw auto_printer.py", 0, False
     If Err.Number = 0 Then WScript.Quit
     
-    ' Priority 3: python.exe (Visible window fallback)
+    ' Priority 3: Check WindowsApps (Store Python) explicitly
+    localAppData = objShell.ExpandEnvironmentStrings("%LOCALAPPDATA%")
+    
+    ' Python 3.exe in WindowsApps
+    winAppsPy3 = localAppData & "\Microsoft\WindowsApps\python3.exe"
+    If fso.FileExists(winAppsPy3) Then
+        err.Clear
+        objShell.Run """" & winAppsPy3 & """ auto_printer.py", 0, False
+        If Err.Number = 0 Then WScript.Quit
+    End If
+    
+    ' Python.exe in WindowsApps
+    winAppsPy = localAppData & "\Microsoft\WindowsApps\python.exe"
+    If fso.FileExists(winAppsPy) Then
+        err.Clear
+        objShell.Run """" & winAppsPy & """ auto_printer.py", 0, False
+        If Err.Number = 0 Then WScript.Quit
+    End If
+
+    ' Priority 4: python.exe (Visible window fallback)
     err.Clear
     objShell.Run "python auto_printer.py", 0, False
     If Err.Number = 0 Then WScript.Quit
     
-    ' Priority 4: Direct full path guess (last resort)
-    userProfile = objShell.ExpandEnvironmentStrings("%USERPROFILE%")
-    fullPath = userProfile & "\AppData\Local\Programs\Python\Python3*\pythonw.exe"
-    ' Requires more complex matching, skipping for now.
-    
     On Error GoTo 0
     
     ' If we get here, everything failed.
-    MsgBox "Could not start PDF Auto Printer." & vbCrLf & "Python was not found in PATH.", 16, "Startup Error"
+    MsgBox "Could not start PDF Auto Printer." & vbCrLf & "Python was not found in PATH or WindowsApps.", 16, "Startup Error"
 End If
