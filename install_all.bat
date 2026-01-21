@@ -1,91 +1,89 @@
 @echo off
+chcp 65001 >nul
 setlocal
-cd /d %~dp0
+cd /d "%~dp0"
 
 echo ==========================================
 echo PDF Auto Printer Setup
 echo ==========================================
 echo.
-echo Checking administrator privileges...
+echo 管理者権限をチェックしています...
 
 :: Check for admin rights
 net session >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] This script requires administrator privileges.
-    echo Please right-click this file and select "Run as administrator"
+    echo [ERROR] このスクリプトは「管理者として実行」する必要があります。
+    echo ファイルを右クリックして「管理者として実行」を選んでください。
     echo.
-    echo Press any key to exit...
+    echo 何かキーを押すと終了します...
     pause >nul
     exit /b 1
 )
 
-echo Administrator check: OK
+echo 管理者権限: OK
+echo 実行ディレクトリ: "%cd%"
 echo.
 
 echo ==========================================
-echo Step 0: Unblocking files
+echo Step 0: ファイルのブロック解除
 echo ==========================================
-echo This avoids "Security Warning" popups during installation.
+echo これにより、実行時のセキュリティ警告を回避します。
 powershell -Command "Get-ChildItem -Recurse | Unblock-File"
-echo Files unblocked: OK
+echo ブロック解除: OK
 echo.
 
 :: Check if winget exists
-echo Checking for winget...
+echo wingetの状態を確認しています...
 where winget >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] winget not found.
-    echo Please update "App Installer" from Microsoft Store.
+    echo [ERROR] wingetが見つかりません。
+    echo Microsoft Storeから「アプリ インストーラー」を更新してください。
     echo.
     pause
     exit /b 1
 )
 
-echo winget found: OK
+echo winget: OK
 echo.
 
 echo ==========================================
-echo Step 1: Installing Python
+echo Step 1: Pythonのインストール
 echo ==========================================
 winget install -e --id Python.Python.3 --source winget --accept-package-agreements --accept-source-agreements
-echo Python installation command completed (exit code: %errorlevel%)
+echo Pythonのセットアップが完了しました (完了コード: %errorlevel%)
 echo.
 
 echo ==========================================
-echo Step 2: Installing SumatraPDF
+echo Step 2: SumatraPDFのインストール
 echo ==========================================
 winget install -e --id SumatraPDF.SumatraPDF --source winget --accept-package-agreements --accept-source-agreements
-echo SumatraPDF installation command completed (exit code: %errorlevel%)
+echo SumatraPDFのセットアップが完了しました (完了コード: %errorlevel%)
 echo.
 
 echo ==========================================
-echo Step 3: Installing Python library (watchdog)
+echo Step 3: ライブラリ (watchdog等) のインストール
 echo ==========================================
-echo Note: This may fail if Python path is not yet updated.
-echo If it fails, it will be installed automatically on first run.
 python -m pip install watchdog pystray Pillow pywin32
+echo ライブラリのセットアップが完了しました。
 echo.
 
 echo ==========================================
-echo Step 4: Setting up auto-start
+echo Step 4: 自動起動の設定
 echo ==========================================
 powershell -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\PDFAutoPrinter.lnk');$s.TargetPath='%~dp0start_hidden.vbs';$s.WorkingDirectory='%~dp0';$s.Save()"
 if %errorlevel% equ 0 (
-    echo Auto-start shortcut created successfully.
+    echo 自動起動のショートカット作成に成功しました。
 ) else (
-    echo [WARNING] Failed to create auto-start shortcut.
+    echo [WARNING] 自動起動の設定に失敗しました。
 )
 echo.
 
 echo ==========================================
-echo Setup Complete!
+echo セットアップ完了！
 echo ==========================================
 echo.
-echo IMPORTANT: Please RESTART your computer now.
-echo After restart, the app will start automatically.
-echo.
-echo If you see any errors above, please take a screenshot
-echo and share it for troubleshooting.
+echo 【重要】パソコンを再起動してください。
+echo 再起動後、アプリが自動的に動き始めます。
 echo.
 echo 何かキーを押すとこの画面を閉じます...
 pause >nul

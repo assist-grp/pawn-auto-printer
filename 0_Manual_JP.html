@@ -9,9 +9,10 @@
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
 
         :root {
-            --primary: #2563eb;
+            --primary: #38bdf8;
+            /* 水色に変更 */
             --primary-dark: #1e40af;
-            --primary-light: #eff6ff;
+            --primary-light: #f0f9ff;
             --text-main: #0f172a;
             --text-sub: #475569;
             --bg-body: #ffffff;
@@ -21,7 +22,7 @@
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
-            --accent: #8b5cf6;
+            --accent: #0ea5e9;
         }
 
         * {
@@ -386,13 +387,19 @@
         .tray-icon {
             width: 32px;
             height: 32px;
-            background: var(--primary);
+            background: linear-gradient(135deg, var(--primary), var(--accent));
             border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
             font-size: 18px;
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+            position: relative;
+        }
+
+        .tray-icon::after {
+            content: "🖨️";
         }
 
         .menu-mock {
@@ -535,7 +542,7 @@
 
     <nav class="sidebar">
         <div class="logo">
-            <div class="tray-icon">🖨️</div>
+            <div class="tray-icon"></div>
             <span>Auto Printer</span>
         </div>
 
@@ -642,11 +649,10 @@
                     </div>
                 </div>
                 <div class="mock-ui">
-                    <strong>動作確認：</strong> 画面右下のタスクトレイ（時計の横）に以下のアイコンがあれば成功です。
+                    <strong>動作確認：</strong> 画面右下のタスクトレイ（時計の横）にある、水色のプリンターアイコンを探してください。
                     <div style="margin-top: 15px;">
                         <div class="tray-mock">
-                            <div class="tray-icon">🖨️</div>
-                            <span style="font-size: 0.9rem; color: #64748b;">PDF Auto Printer (稼働中)</span>
+                            <div class="tray-icon" title="Pawn PDF Auto Printer"></div>
                         </div>
                     </div>
                 </div>
@@ -664,7 +670,11 @@
                 <div class="step-list">
                     <div class="step-item">
                         <div class="step-number">1</div>
-                        <div>タスクトレイのプリンターアイコンを <strong>右クリック</strong> します。</div>
+                        <div>
+                            タスクトレイ（画面右下の時計の横）にある
+                            <strong>プリンターのアイコン（水色）</strong>を右クリックします。<br>
+                            <small>※アイコンが見当たらない場合は、時計の横の<strong>「∧」マーク</strong>の中を確認してください。</small>
+                        </div>
                     </div>
                     <div class="step-item">
                         <div class="step-number">2</div>
@@ -680,26 +690,27 @@
                     <div class="menu-mock">
                         <div class="menu-item">Select Printer <span>▶</span></div>
                         <div class="menu-sep"></div>
-                        <div class="menu-item" style="padding-left: 32px;">✓ Default Printer</div>
+                        <div class="menu-item" style="padding-left: 32px;">✓ 既定プリンター</div>
                         <div class="menu-item" style="padding-left: 32px;">Brother HL-L5210DN</div>
                         <div class="menu-item" style="padding-left: 32px;">EPSON SC-P800</div>
-                        <div class="menu-sep"></div>
-                        <div class="menu-item">Quit</div>
                     </div>
+                    <div class="menu-sep"></div>
+                    <div class="menu-item">Quit</div>
                 </div>
-                <div class="callout callout-success">
-                    <div class="callout-icon">✅</div>
-                    <div class="callout-content">
-                        <strong>記憶機能：</strong> 一度選択したプリンターは、次回以降も自動的に選ばれます。
-                    </div>
+            </div>
+            <div class="callout callout-success">
+                <div class="callout-icon">✅</div>
+                <div class="callout-content">
+                    <strong>記憶機能：</strong> 一度選択したプリンターは、次回以降も自動的に選ばれます。
                 </div>
+            </div>
 
-                <h3>方法2：Windowsの設定で「既定」にする</h3>
-                <p>特定のプリンターを指定せず、Windowsの標準プリンターとして設定する方法です。</p>
-                <ol>
-                    <li><strong>「設定」→「Bluetooth とデバイス」→「プリンターとスキャナー」</strong>を開きます。</li>
-                    <li>使用したいプリンターを選び、<strong>「既定として設定」</strong>ボタンを押します。</li>
-                </ol>
+            <h3>方法2：Windowsの設定で「既定」にする</h3>
+            <p>特定のプリンターを指定せず、Windowsの標準プリンターとして設定する方法です。</p>
+            <ol>
+                <li><strong>「設定」→「Bluetooth とデバイス」→「プリンターとスキャナー」</strong>を開きます。</li>
+                <li>使用したいプリンターを選び、<strong>「既定として設定」</strong>ボタンを押します。</li>
+            </ol>
             </div>
         </section>
 
@@ -726,6 +737,13 @@
                         </tr>
                     </tbody>
                 </table>
+                <div class="callout callout-info">
+                    <div class="callout-icon">💡</div>
+                    <div class="callout-content">
+                        <strong>アイコンが見当たらない場合：</strong><br>
+                        タスクトレイの<strong>「∧」ボタン（隠れているインジケーターを表示）</strong>を押すと、中に入っていることがあります。ドラッグして外に移動しておくと便利です。
+                    </div>
+                </div>
                 <div class="callout callout-info">
                     <div class="callout-icon">✨</div>
                     <div class="callout-content">
