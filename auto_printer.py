@@ -209,7 +209,7 @@ class PDFHandler(FileSystemEventHandler):
             "--no-margins",
             "--include-background",
             "--run-all-compositor-stages-before-draw",
-            "--virtual-time-budget=2000",  # 5sから2sに短縮（これ以上短いとCSSが反映されない可能性あり）
+            "--virtual-time-budget=500",  # 2000ms -> 500msに短縮（高速化優先）
             f"file:///{os.path.abspath(html_path).replace('\\', '/')}"
         ]
         
