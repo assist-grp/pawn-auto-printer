@@ -1,6 +1,8 @@
 {
     "watch_directory": "",
-    "sumatra_path": "C:/Users/info/AppData/Local/SumatraPDF/SumatraPDF.exe",
+    "sumatra_path": "",
+    "browser_path": "",
     "log_file": "printer_log.txt",
+    "target_printer": null,
     "auto_delete": true
 }

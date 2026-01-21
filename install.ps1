@@ -160,17 +160,48 @@ try {
     }
     
     Write-Host "Running pip install using: $pipCmd"
+    Write-Host "This may take 2-3 minutes. Please wait..." -ForegroundColor Yellow
+    Write-Host ""
     
     # Invoke-Expression is sometimes flagged, but simple arguments are usually ok
     if ($pipCmd -match "WindowsApps") {
-        Start-Process -FilePath $windowsAppsPy -ArgumentList "-m pip install --upgrade pip" -Wait -NoNewWindow
-        Start-Process -FilePath $windowsAppsPy -ArgumentList "-m pip install watchdog pystray Pillow pywin32" -Wait -NoNewWindow
+        Write-Host "[1/2] Upgrading pip..."
+        Start-Process -FilePath $windowsAppsPy -ArgumentList "-m pip install --upgrade pip --timeout 60 --no-cache-dir" -Wait -NoNewWindow
+        
+        Write-Host "[2/2] Installing packages individually..."
+        $packages = @("watchdog", "pystray", "Pillow", "pywin32")
+        foreach ($pkg in $packages) {
+            Write-Host "  Installing $pkg..." -NoNewline
+            $proc = Start-Process -FilePath $windowsAppsPy -ArgumentList "-m pip install $pkg --timeout 60 --no-cache-dir" -Wait -NoNewWindow -PassThru
+            if ($proc.ExitCode -eq 0) {
+                Write-Host " OK" -ForegroundColor Green
+            } else {
+                Write-Host " FAILED (will retry on first run)" -ForegroundColor Yellow
+            }
+        }
     } else {
-        & $pipCmd -m pip install --upgrade pip
-        & $pipCmd -m pip install watchdog pystray Pillow pywin32
+        Write-Host "[1/2] Upgrading pip..."
+        & $pipCmd -m pip install --upgrade pip --timeout 60 --no-cache-dir
+        
+        Write-Host "[2/2] Installing packages individually..."
+        $packages = @("watchdog", "pystray", "Pillow", "pywin32")
+        foreach ($pkg in $packages) {
+            Write-Host "  Installing $pkg..." -NoNewline
+            try {
+                & $pipCmd -m pip install $pkg --timeout 60 --no-cache-dir 2>&1 | Out-Null
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Host " OK" -ForegroundColor Green
+                } else {
+                    Write-Host " FAILED (will retry on first run)" -ForegroundColor Yellow
+                }
+            } catch {
+                Write-Host " ERROR: $_" -ForegroundColor Yellow
+            }
+        }
     }
 
-    Write-Host "Pip install complete."
+    Write-Host ""
+    Write-Host "Pip install complete." -ForegroundColor Green
 
 } catch {
     Write-Host "[ERROR] Failed to install libraries: $_" -ForegroundColor Red
@@ -187,12 +218,20 @@ try {
     $ShortcutPath = Join-Path $StartupDir "PDFAutoPrinter.lnk"
     $TargetScript = Join-Path $InstallDir "start_hidden.vbs"
     
+    # Delete existing shortcut if it exists
+    if (Test-Path $ShortcutPath) {
+        Remove-Item $ShortcutPath -Force
+        Write-Host "Removed existing shortcut"
+    }
+    
     $Shortcut = $WshShell.CreateShortcut($ShortcutPath)
-    $Shortcut.TargetPath = $TargetScript
+    $Shortcut.TargetPath = "wscript.exe"
+    $Shortcut.Arguments = "`"$TargetScript`""
     $Shortcut.WorkingDirectory = $InstallDir
     $Shortcut.Save()
     
-    Write-Host "Shortcut created at: $ShortcutPath"
+    Write-Host "Startup shortcut created: $ShortcutPath" -ForegroundColor Green
+    Write-Host "Target: wscript.exe `"$TargetScript`"" -ForegroundColor Cyan
 } catch {
     Write-Host "[ERROR] Failed to create shortcut: $_" -ForegroundColor Red
 }

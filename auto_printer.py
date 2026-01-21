@@ -2,22 +2,54 @@ import os
 import sys
 
 # DEBUG: Catch import errors immediately
+missing_packages = []
 try:
     import time
     import json
     import subprocess
     import logging
+except ImportError as e:
+    missing_packages.append(str(e))
+
+try:
     from watchdog.observers import Observer
     from watchdog.events import FileSystemEventHandler
+except ImportError as e:
+    missing_packages.append("watchdog")
+
+try:
     import threading
+except ImportError as e:
+    missing_packages.append("threading")
+
+try:
     from PIL import Image
+except ImportError as e:
+    missing_packages.append("Pillow")
+
+try:
     from pystray import Icon, Menu, MenuItem
+except ImportError as e:
+    missing_packages.append("pystray")
+
+try:
     import win32print
 except ImportError as e:
+    missing_packages.append("pywin32")
+
+if missing_packages:
+    error_msg = f"CRITICAL ERROR: Missing Python packages.\n\n"
+    error_msg += f"Missing: {', '.join(set(missing_packages))}\n\n"
+    error_msg += "Please run this command as Administrator:\n"
+    error_msg += f"python -m pip install {' '.join(set(missing_packages))}\n\n"
+    error_msg += "Or try:\n"
+    error_msg += f"py -m pip install {' '.join(set(missing_packages))}\n"
+    
     with open("startup_error.txt", "w", encoding="utf-8") as f:
-        f.write(f"CRITICAL ERROR: Failed to import python modules.\n")
-        f.write(f"Error: {e}\n\n")
-        f.write("Please run 'pip install watchdog pystray Pillow pywin32' manually.\n")
+        f.write(error_msg)
+    
+    print(error_msg)
+    input("Press Enter to exit...")
     sys.exit(1)
 
 # 設定の読み込み
@@ -27,14 +59,25 @@ def load_config():
     if not os.path.exists(CONFIG_FILE):
         return {
             "watch_directory": os.path.join(os.environ["USERPROFILE"], "Downloads"),
-            "sumatra_path": r"C:\Program Files\SumatraPDF\SumatraPDF.exe",
+            "sumatra_path": "",
+            "browser_path": "",
             "log_file": "printer_log.txt",
-            "target_printer": None
+            "target_printer": None,
+            "auto_delete": True
         }
     with open(CONFIG_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
-        if "target_printer" not in data:
-            data["target_printer"] = None
+        # Ensure all required keys exist with defaults
+        defaults = {
+            "target_printer": None,
+            "auto_delete": True,
+            "sumatra_path": "",
+            "browser_path": "",
+            "watch_directory": os.path.join(os.environ["USERPROFILE"], "Downloads")
+        }
+        for key, default_value in defaults.items():
+            if key not in data:
+                data[key] = default_value
         return data
 
 def save_config(new_config):
@@ -105,26 +148,34 @@ class PDFHandler(FileSystemEventHandler):
             return
         
         filename = os.path.basename(event.src_path)
+        # Only process modified event if file not yet in processed or processing
         if filename.lower().endswith((".pdf", ".html")):
-            # Enable on_modified to catch direct writes or updates
-            # Duplicates handled by process_file
-            self.process_file(event.src_path, filename)
+            file_path = event.src_path
+            # Skip if already processing or processed
+            if file_path in self.processed_files or file_path in self.processing_lock:
+                return
+            self.process_file(file_path, filename)
 
-    def is_file_ready(self, file_path):
-        """Check if file is readable and not empty"""
-        try:
-            # Check size
-            if os.path.getsize(file_path) == 0:
-                return False
-            # Try to open for exclusive read
-            with open(file_path, 'rb') as f:
-                # Try to read a byte to ensure we actually can
-                f.read(1)
-            return True
-        except Exception:
-            return False
+    def is_file_ready(self, file_path, max_wait=1.0):
+        """Check if file is readable and not empty with minimal wait"""
+        start_time = time.time()
+        while time.time() - start_time < max_wait:
+            try:
+                size = os.path.getsize(file_path)
+                if size == 0:
+                    time.sleep(0.1)
+                    continue
+                # Quick read test
+                with open(file_path, 'rb') as f:
+                    f.read(1)
+                return True
+            except Exception:
+                time.sleep(0.05)
+        return False
 
     def process_file(self, file_path, filename):
+        start_time = time.time()
+        
         # Avoid processing the same file multiple times (if already successfully printed)
         if file_path in self.processed_files:
             return
@@ -151,13 +202,14 @@ class PDFHandler(FileSystemEventHandler):
             return
 
         # Check if file is ready (not locked, has content)
+        ready_start = time.time()
         if not self.is_file_ready(file_path):
-            # logging.info(f"FILE NOT READY: {filename}") # Avoid spam
             return
+        ready_time = time.time() - ready_start
         
         # Mark as being processed
         self.processing_lock[file_path] = True
-        logging.info(f"PROCESSING: {filename}")
+        logging.info(f"PROCESSING: {filename} (ready check: {ready_time:.2f}s)")
         
         try:
             logging.info(f"DETECTED: {filename} -> Target paper size {paper_size}")
@@ -168,22 +220,28 @@ class PDFHandler(FileSystemEventHandler):
             # HTMLの場合はPDFに変換
             if is_html:
                 temp_pdf = file_path + ".pdf"
+                convert_start = time.time()
                 logging.info(f"CONVERTING HTML TO PDF: {filename}")
                 if self.convert_html_to_pdf(file_path, temp_pdf):
                     target_pdf = temp_pdf
+                    convert_time = time.time() - convert_start
+                    logging.info(f"CONVERSION COMPLETE: {filename} ({convert_time:.2f}s)")
                 else:
                     logging.error(f"CONVERSION FAILED: {filename}")
-                    # Don't mark as processed, maybe retry later? Or mark as failed?
-                    # For now, release lock and return.
                     return
 
             # PDFの印刷実行
             if self.icon:
                 self.icon.notify(f"印刷を開始します: {filename}", "PDF Auto Printer")
             
+            print_start = time.time()
             success = self.print_pdf(target_pdf, paper_size)
+            print_time = time.time() - print_start
             
             if success:
+                total_time = time.time() - start_time
+                logging.info(f"PRINT SUCCESS: {filename} (print: {print_time:.2f}s, total: {total_time:.2f}s)")
+                
                 # Mark as successfully processed ONLY after print
                 self.processed_files.add(file_path)
                 
@@ -220,7 +278,52 @@ class PDFHandler(FileSystemEventHandler):
             if file_path in self.processing_lock:
                 del self.processing_lock[file_path]
 
+    def preprocess_html(self, html_path):
+        """外部リソース（fonts.googleapis.com, debugbar等）のリンクを削除して高速化"""
+        try:
+            with open(html_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            original_len = len(content)
+            import re
+            # 外部フォントのlinkタグを削除（改行を含む場合も対応: re.DOTALL）
+            content = re.sub(r'<link[^>]*href=["\'][^"\']*fonts\.googleapis\.com[^"\']*["\'][^>]*>', '', content, flags=re.IGNORECASE | re.DOTALL)
+            # fonts.googleapis.comがURLに改行を含む場合（https:\n//fonts...）
+            content = re.sub(r'<link[^>]*href=["\']https?:\s*//fonts\.googleapis\.com[^"\']*["\'][^>]*>', '', content, flags=re.IGNORECASE | re.DOTALL)
+            # 外部CSSのlinkタグを削除（fonts.gstatic.com, fontawesome等）
+            content = re.sub(r'<link[^>]*href=["\'][^"\']*fonts\.gstatic\.com[^"\']*["\'][^>]*>', '', content, flags=re.IGNORECASE | re.DOTALL)
+            content = re.sub(r'<link[^>]*href=["\'][^"\']*fontawesome[^"\']*["\'][^>]*>', '', content, flags=re.IGNORECASE | re.DOTALL)
+            # @import url(...)も削除
+            content = re.sub(r'@import\s+url\([^)]*fonts\.googleapis\.com[^)]*\);?', '', content, flags=re.IGNORECASE | re.DOTALL)
+            content = re.sub(r'@import\s+url\([^)]*fontawesome[^)]*\);?', '', content, flags=re.IGNORECASE | re.DOTALL)
+            
+            # DebugBar関連を削除（開発用なので本番印刷には不要）
+            content = re.sub(r'<link[^>]*href=["\']?[^"\']*_debugbar[^"\']*["\']?[^>]*>', '', content, flags=re.IGNORECASE | re.DOTALL)
+            content = re.sub(r'<script[^>]*src=["\']?[^"\']*_debugbar[^"\']*["\']?[^>]*></script>', '', content, flags=re.IGNORECASE | re.DOTALL)
+            content = re.sub(r'<script[^>]*>jQuery\.noConflict\(true\);</script>', '', content, flags=re.IGNORECASE | re.DOTALL)
+            
+            # CSS内のNunitoフォント参照をシステムフォントに置換（外部フォント読み込みを防止）
+            content = re.sub(r'font-family:\s*Nunito\s*,', 'font-family:system-ui,', content, flags=re.IGNORECASE)
+            content = re.sub(r"font-family:\s*'Nunito'\s*,", 'font-family:system-ui,', content, flags=re.IGNORECASE)
+            content = re.sub(r'font-family:\s*"Nunito"\s*,', 'font-family:system-ui,', content, flags=re.IGNORECASE)
+            
+            removed_bytes = original_len - len(content)
+            
+            # 前処理済みファイルを一時保存
+            preprocessed_path = html_path + ".preprocessed.html"
+            with open(preprocessed_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            
+            logging.info(f"PREPROCESSED: {os.path.basename(html_path)} (removed {removed_bytes} bytes of external resources)")
+            return preprocessed_path
+        except Exception as e:
+            logging.error(f"HTML Preprocess Error: {e}")
+            return html_path  # 失敗時は元ファイルを使用
+
     def convert_html_to_pdf(self, html_path, pdf_path):
+        # 前処理: 外部リソースを削除
+        preprocessed_path = self.preprocess_html(html_path)
+        
         # ブラウザのパスを探す (Edge -> Chromeの順)
         browser_path = config.get("browser_path")
         
@@ -249,46 +352,107 @@ class PDFHandler(FileSystemEventHandler):
             config["browser_path"] = browser_path
             save_config(config)
 
+        # 固定のユーザーデータディレクトリを使用（プロファイル作成を回避して高速化）
+        user_data_dir = os.path.join(os.environ.get("TEMP", "C:\\Temp"), "pawn_printer_browser")
+        cache_dir = os.path.join(os.environ.get("TEMP", "C:\\Temp"), "pawn_printer_cache")
+        
         command = [
             browser_path,
             "--headless=new",
+            f"--user-data-dir={user_data_dir}",
+            f"--disk-cache-dir={cache_dir}",
+            "--disk-cache-size=104857600",
             "--disable-gpu",
+            "--no-sandbox",
+            "--disable-software-rasterizer",
+            "--disable-dev-shm-usage",
+            "--disable-extensions",
+            "--disable-plugins",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--disable-sync",
+            "--disable-translate",
+            "--disable-component-update",
+            "--disable-background-networking",
+            "--disable-client-side-phishing-detection",
+            "--disable-default-apps",
+            "--disable-hang-monitor",
+            "--disable-popup-blocking",
+            "--disable-prompt-on-repost",
+            "--metrics-recording-only",
+            "--safebrowsing-disable-auto-update",
             f"--print-to-pdf={pdf_path}",
             "--no-margins",
             "--include-background",
-            "--run-all-compositor-stages-before-draw",
-            # "--virtual-time-budget=500",  # 完全に削除して最速化（読み込み完了次第すぐ出力）
-            f"file:///{os.path.abspath(html_path).replace('\\', '/')}"
+            "--no-pdf-header-footer",
+            f"file:///{os.path.abspath(preprocessed_path).replace('\\', '/')}"
         ]
         
         try:
-            subprocess.run(command, check=True, timeout=60)
+            subprocess.run(command, check=True, timeout=60, creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+            # 前処理ファイルを削除
+            if preprocessed_path != html_path and os.path.exists(preprocessed_path):
+                try:
+                    os.remove(preprocessed_path)
+                except:
+                    pass
             return True
         except Exception as e:
-            logging.error(f"Edge Conversion Error: {e}")
+            logging.error(f"Browser Conversion Error: {e}")
+            # エラー時も前処理ファイルを削除
+            if preprocessed_path != html_path and os.path.exists(preprocessed_path):
+                try:
+                    os.remove(preprocessed_path)
+                except:
+                    pass
             return False
 
     def print_pdf(self, file_path, paper_size):
         sumatra_path = config.get("sumatra_path")
         
         # SumatraPDFのパスを探す
-        if not os.path.exists(sumatra_path):
+        if not sumatra_path or not os.path.exists(sumatra_path):
             # 一般的なインストール場所を検索
             possible_paths = [
                 r"C:\Program Files\SumatraPDF\SumatraPDF.exe",
                 r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe",
+                os.path.join(os.environ.get("LOCALAPPDATA", ""), "SumatraPDF", "SumatraPDF.exe"),
                 os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WindowsApps", "SumatraPDF.exe"),
+                os.path.join(os.environ.get("PROGRAMFILES", ""), "SumatraPDF", "SumatraPDF.exe"),
+                os.path.join(os.environ.get("PROGRAMFILES(X86)", ""), "SumatraPDF", "SumatraPDF.exe"),
             ]
             
+            # Winget でインストールされた場所を追加検索
+            winget_paths = [
+                os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "SumatraPDF", "SumatraPDF.exe"),
+                os.path.join(os.environ.get("PROGRAMFILES", ""), "WindowsApps", "SumatraPDF*", "SumatraPDF.exe"),
+            ]
+            possible_paths.extend(winget_paths)
+            
             for path in possible_paths:
-                if os.path.exists(path):
+                # ワイルドカード対応
+                if "*" in path:
+                    import glob
+                    matches = glob.glob(path)
+                    if matches and os.path.exists(matches[0]):
+                        sumatra_path = matches[0]
+                        logging.info(f"SumatraPDF found: {sumatra_path}")
+                        # 設定に保存
+                        config["sumatra_path"] = sumatra_path
+                        save_config(config)
+                        break
+                elif os.path.exists(path):
                     sumatra_path = path
                     logging.info(f"SumatraPDF found: {sumatra_path}")
+                    # 設定に保存
+                    config["sumatra_path"] = sumatra_path
+                    save_config(config)
                     break
             else:
                 logging.error(f"ERROR: SumatraPDF not found. Checked locations:")
                 for path in possible_paths:
                     logging.error(f"  - {path}")
+                logging.error("Please install SumatraPDF from: https://www.sumatrapdfreader.org/")
                 return False
 
         # SumatraPDFコマンドの構築
@@ -301,17 +465,22 @@ class PDFHandler(FileSystemEventHandler):
             command.append(config["target_printer"])
             
         command.extend([
-            "-print-settings", f"paper={paper_size},simplex",
+            "-print-settings", f"paper={paper_size},simplex,fit",  # fit オプション追加
             "-silent",
+            "-exit-on-print",  # 印刷後すぐに終了（待機時間削減）
             file_path
         ])
 
         try:
-            subprocess.run(command, check=True)
-            logging.info(f"PRINT SUCCESS: {file_path}")
+            # タイムアウト追加で長時間ハングを防止
+            subprocess.run(command, check=True, timeout=30)
             return True
+        except subprocess.TimeoutExpired:
+            logging.error(f"PRINT TIMEOUT: {file_path} (30s)")
+            return False
         except subprocess.CalledProcessError as e:
             logging.error(f"PRINT FAILED: {e}")
+            return False
             return False
 
 if __name__ == "__main__":
@@ -339,7 +508,8 @@ if __name__ == "__main__":
 
     def create_tray_icon():
         # Use PNG for tray icon (better transparency)
-        icon_path = "app_icon.png"
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        icon_path = os.path.join(script_dir, "app_icon.png")
         
         def set_printer(printer_name):
             def inner(icon, item):

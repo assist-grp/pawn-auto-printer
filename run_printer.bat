@@ -1,80 +1,132 @@
 @echo off
-setlocal
+setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
-echo Starting PDF Auto Printer...
+color 0F
+cls
+echo ==========================================
+echo    PDF Auto Printer - Startup
+echo ==========================================
+echo.
 
 :: Set Python command
-set PYTHON_CMD=python
+set PYTHON_CMD=
 
 :: 1. Check if python is in PATH
-"%PYTHON_CMD%" --version >nul 2>&1
-if %errorlevel% equ 0 goto FOUND
+python --version >nul 2>&1
+if %errorlevel% equ 0 (
+    set "PYTHON_CMD=python"
+    goto PYTHON_FOUND
+)
 
 :: 2. Check if py is in PATH
-set PYTHON_CMD=py
-"%PYTHON_CMD%" --version >nul 2>&1
-if %errorlevel% equ 0 goto FOUND
+py --version >nul 2>&1
+if %errorlevel% equ 0 (
+    set "PYTHON_CMD=py"
+    goto PYTHON_FOUND
+)
 
 :: 3. Custom Search in User Local Programs (Standard Winget location)
 for /d %%p in ("%LOCALAPPDATA%\Programs\Python\Python3*") do (
     if exist "%%p\python.exe" (
-        set "PYTHON_CMD=%%p\python.exe"
-        goto CHECK_CANDIDATE
+        "%%p\python.exe" --version >nul 2>&1
+        if !errorlevel! equ 0 (
+            set "PYTHON_CMD=%%p\python.exe"
+            goto PYTHON_FOUND
+        )
     )
 )
 
 :: 4. Custom Search in WindowsApps (Microsoft Store Location)
-:: Verify EXPLICITLY before using to avoid stub issues
 if exist "%LOCALAPPDATA%\Microsoft\WindowsApps\python.exe" (
-    set "PYTHON_CMD=%LOCALAPPDATA%\Microsoft\WindowsApps\python.exe"
-    goto CHECK_CANDIDATE
+    "%LOCALAPPDATA%\Microsoft\WindowsApps\python.exe" --version >nul 2>&1
+    if !errorlevel! equ 0 (
+        set "PYTHON_CMD=%LOCALAPPDATA%\Microsoft\WindowsApps\python.exe"
+        goto PYTHON_FOUND
+    )
 )
 if exist "%LOCALAPPDATA%\Microsoft\WindowsApps\python3.exe" (
-    set "PYTHON_CMD=%LOCALAPPDATA%\Microsoft\WindowsApps\python3.exe"
-    goto CHECK_CANDIDATE
+    "%LOCALAPPDATA%\Microsoft\WindowsApps\python3.exe" --version >nul 2>&1
+    if !errorlevel! equ 0 (
+        set "PYTHON_CMD=%LOCALAPPDATA%\Microsoft\WindowsApps\python3.exe"
+        goto PYTHON_FOUND
+    )
 )
 
 :: 5. Custom Search in Program Files (Standard Installer location)
 for /d %%p in ("%ProgramFiles%\Python3*") do (
     if exist "%%p\python.exe" (
-        set "PYTHON_CMD=%%p\python.exe"
-        goto CHECK_CANDIDATE
+        "%%p\python.exe" --version >nul 2>&1
+        if !errorlevel! equ 0 (
+            set "PYTHON_CMD=%%p\python.exe"
+            goto PYTHON_FOUND
+        )
     )
 )
 
 :: 6. Custom Search in Program Files (x86)
 for /d %%p in ("%ProgramFiles(x86)%\Python3*") do (
     if exist "%%p\python.exe" (
-        set "PYTHON_CMD=%%p\python.exe"
-        goto CHECK_CANDIDATE
+        "%%p\python.exe" --version >nul 2>&1
+        if !errorlevel! equ 0 (
+            set "PYTHON_CMD=%%p\python.exe"
+            goto PYTHON_FOUND
+        )
     )
 )
 
-:: Not found
-echo [ERROR] Python not found. Please run install_all.bat first.
-echo Checked: PATH, LocalAppData, WindowsApps, Program Files.
+:: Python not found
+echo [ERROR] Python not found!
+echo.
+echo Please install Python 3.9+ from:
+echo   https://www.python.org/
+echo.
+echo Or run:
+echo   install_all.bat
+echo.
 pause
-exit /b
+exit /b 1
 
-:CHECK_CANDIDATE
-"%PYTHON_CMD%" --version >nul 2>&1
-if %errorlevel% equ 0 goto FOUND
-echo [WARNING] Found %PYTHON_CMD% but it does not work (Stub?). Skipping...
-:: Fallthrough to search next (simplified: just exit here for now or improve loop)
-:: For now, if we found a candidate and it failed, we assume failure.
-:: But ideally we should loop. 
-:: Given the complexity of batch loops, let's keep it simple:
-:: If the most likely candidate fails, we error out.
-goto NOT_WORKING
+:PYTHON_FOUND
+echo [✓] Python found: !PYTHON_CMD!
+echo.
 
-:NOT_WORKING
-echo [ERROR] Python was found at %PYTHON_CMD% but failed to run.
-echo It might be a 0KB stub file. Please install Python manually.
-pause
-exit /b
+:: Verify config.json exists
+if not exist "config.json" (
+    echo [⚠] config.json not found - creating default...
+    python -c "import json; json.dump({'watch_directory': '', 'sumatra_path': '', 'log_file': 'printer_log.txt', 'auto_delete': True}, open('config.json', 'w'))" >nul 2>&1
+    if %errorlevel% equ 0 (
+        echo [✓] config.json created
+    ) else (
+        echo [ERROR] Failed to create config.json
+        pause
+        exit /b 1
+    )
+)
 
-:FOUND
-echo Python found: %PYTHON_CMD%
+echo [✓] Configuration loaded from config.json
+echo.
+
+:: Check for startup_error.txt from previous run
+if exist "startup_error.txt" (
+    echo [⚠] Previous error detected:
+    type startup_error.txt
+    echo.
+    echo Please fix the issue and try again.
+    pause
+    exit /b 1
+)
+
+echo Starting application...
+echo.
+echo ==========================================
+echo Application running - Press Ctrl+C to stop
+echo ==========================================
+echo.
+
+:: Run the application
 "%PYTHON_CMD%" auto_printer.py
+
+echo.
+echo Application closed.
 pause
