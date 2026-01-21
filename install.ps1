@@ -31,38 +31,13 @@ Write-Host ""
 # ---------------------------------------------------------
 # 1. Setup Installation Directory
 # ---------------------------------------------------------
-$InstallDir = "C:\pawn-auto-printer"
+# User requested IN-PLACE installation (e.g. in Downloads folder)
+# We no longer copy to C:\pawn-auto-printer
+$InstallDir = $PSScriptRoot
 $SourceDir = $PSScriptRoot
 
-# Avoid recursively copying if we are already in the target (or subdirectory)
-if ($SourceDir -ne $InstallDir) {
-    Write-Host "Installing to $InstallDir..." -ForegroundColor Yellow
-    
-    if (-not (Test-Path $InstallDir)) {
-        New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-    }
-    
-    Write-Host "Copying files from: $SourceDir"
-    # Exclude self execution if possible, but Copy-Item handles simple cases
-    Copy-Item -Path "$SourceDir\*" -Destination "$InstallDir" -Recurse -Force
-    
-    Write-Host "Files copied successfully."
-    
-    # Relaunch from the new location
-    $NewScriptPath = Join-Path $InstallDir "install.ps1"
-    
-    if (Test-Path $NewScriptPath) {
-        Write-Host "Relaunching from install directory..."
-        $process = New-Object System.Diagnostics.ProcessStartInfo "powershell"
-        $process.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$NewScriptPath`""
-        $process.Verb = "runas"
-        $process.WorkingDirectory = $InstallDir
-        [System.Diagnostics.Process]::Start($process)
-        exit
-    }
-}
-
 Write-Host "Step 1: Installation location confirmed: $InstallDir"
+Write-Host "       (Running in-place as requested)"
 Write-Host ""
 
 # ---------------------------------------------------------
@@ -75,7 +50,7 @@ Write-Host "Files unblocked."
 Write-Host ""
 
 # ---------------------------------------------------------
-# 3. Check/Install Dependencies (Winget)
+# 3. Check/Install Dependencies (Winget + Fallback)
 # ---------------------------------------------------------
 Write-Host "Step 3: Checking Dependencies..." -ForegroundColor Green
 
@@ -83,23 +58,76 @@ function Test-Command ($command) {
     return (Get-Command $command -ErrorAction SilentlyContinue)
 }
 
+function Install-Python-Fallback {
+    Write-Host "[INFO] Attempting Direct Python Download & Install..." -ForegroundColor Yellow
+    $installerUrl = "https://www.python.org/ftp/python/3.12.1/python-3.12.1-amd64.exe"
+    $installerPath = "$env:TEMP\python_installer.exe"
+    
+    try {
+        Write-Host "Downloading Python Installer..."
+        Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
+        
+        Write-Host "Installing Python (Silent)... This may take a minute."
+        # /quiet: Silent
+        # InstallAllUsers=1: Install for all users (Program Files) -> easier to find
+        # PrependPath=1: Add to PATH
+        $args = "/quiet InstallAllUsers=1 PrependPath=1 Include_test=0"
+        $proc = Start-Process -FilePath $installerPath -ArgumentList $args -Wait -PassThru
+        
+        if ($proc.ExitCode -eq 0) {
+             Write-Host "Python Direct Install Success." -ForegroundColor Green
+             # Refresh PATH manually for this session
+             $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+             return $true
+        } else {
+             Write-Host "Python Install Failed. Exit Code: $($proc.ExitCode)" -ForegroundColor Red
+             return $false
+        }
+    } catch {
+        Write-Host "[ERROR] Download or Install failed: $_" -ForegroundColor Red
+        return $false
+    }
+}
+
 # Check Python first
 if (Test-Command "python") {
     $pyVer = python --version 2>&1
     Write-Host "Python is already installed: $pyVer" -ForegroundColor Cyan
 } else {
-    Write-Host "Python not found. Attempting install via winget..."
+    Write-Host "Python not found. Attempting install..."
+    
+    # Method 1: Winget
     if (Test-Command "winget") {
-        # Try generic Python 3 first
+        Write-Host "Method 1: Winget (Store/Package Manager)"
+        # Try generic Python 3
         winget install -e --id Python.Python.3 --source winget --accept-package-agreements --accept-source-agreements
         if ($LASTEXITCODE -ne 0) {
-             Write-Host "[WARNING] Failed to install 'Python.Python.3'. Trying 'Python.Python.3.12'..." -ForegroundColor Yellow
-             winget install -e --id Python.Python.3.12 --source winget --accept-package-agreements --accept-source-agreements
+             Write-Host "[WARNING] Winget failed. Trying fallback..." -ForegroundColor Yellow
+             
+             # Method 2: Direct Download
+             if (-not (Install-Python-Fallback)) {
+                 Write-Host "[CRITICAL ERROR] Python could not be installed." -ForegroundColor Red
+                 Write-Host "Please install Python 3.12 manually from python.org"
+                 Write-Host "Press Enter to exit..."
+                 Read-Host
+                 exit 1
+             }
         }
     } else {
-        Write-Host "[ERROR] 'winget' not found and Python is missing." -ForegroundColor Red
-        Write-Host "Please install Python manually from python.org"
+        # Method 2 Only
+        Write-Host "[INFO] Winget not found. Using direct installer."
+        if (-not (Install-Python-Fallback)) {
+             Write-Host "[CRITICAL ERROR] Python could not be installed." -ForegroundColor Red
+             exit 1
+        }
     }
+}
+
+# Verify again
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+if (-not (Test-Command "python")) {
+     Write-Host "[WARNING] Python installed but not found in PATH yet." -ForegroundColor Yellow
+     Write-Host "A reboot will be required."
 }
 
 # Install SumatraPDF (Always try update/install)

@@ -1,14 +1,24 @@
 import os
-import time
-import json
-import subprocess
-import logging
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-import threading
-from PIL import Image
-from pystray import Icon, Menu, MenuItem
-import win32print
+import sys
+
+# DEBUG: Catch import errors immediately
+try:
+    import time
+    import json
+    import subprocess
+    import logging
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
+    import threading
+    from PIL import Image
+    from pystray import Icon, Menu, MenuItem
+    import win32print
+except ImportError as e:
+    with open("startup_error.txt", "w", encoding="utf-8") as f:
+        f.write(f"CRITICAL ERROR: Failed to import python modules.\n")
+        f.write(f"Error: {e}\n\n")
+        f.write("Please run 'pip install watchdog pystray Pillow pywin32' manually.\n")
+    sys.exit(1)
 
 # 設定の読み込み
 CONFIG_FILE = "config.json"
