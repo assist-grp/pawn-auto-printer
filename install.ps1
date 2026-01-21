@@ -50,7 +50,7 @@ Write-Host "Files unblocked."
 Write-Host ""
 
 # ---------------------------------------------------------
-# 3. Check/Install Dependencies (Winget + Fallback)
+# 3. Check/Install Dependencies (Winget)
 # ---------------------------------------------------------
 Write-Host "Step 3: Checking Dependencies..." -ForegroundColor Green
 
@@ -58,76 +58,77 @@ function Test-Command ($command) {
     return (Get-Command $command -ErrorAction SilentlyContinue)
 }
 
-function Install-Python-Fallback {
-    Write-Host "[INFO] Attempting Direct Python Download & Install..." -ForegroundColor Yellow
-    $installerUrl = "https://www.python.org/ftp/python/3.12.1/python-3.12.1-amd64.exe"
-    $installerPath = "$env:TEMP\python_installer.exe"
-    
+# Check Python first
+$localAppData = [System.Environment]::GetEnvironmentVariable("LocalAppData")
+$windowsAppsPy = "$localAppData\Microsoft\WindowsApps\python.exe"
+$windowsAppsPy3 = "$localAppData\Microsoft\WindowsApps\python3.exe"
+
+$isPythonInstalled = $false
+
+function Verify-Python ($path) {
+    if (-not (Test-Path $path)) { return $false }
     try {
-        Write-Host "Downloading Python Installer..."
-        Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
-        
-        Write-Host "Installing Python (Silent)... This may take a minute."
-        # /quiet: Silent
-        # InstallAllUsers=1: Install for all users (Program Files) -> easier to find
-        # PrependPath=1: Add to PATH
-        $args = "/quiet InstallAllUsers=1 PrependPath=1 Include_test=0"
-        $proc = Start-Process -FilePath $installerPath -ArgumentList $args -Wait -PassThru
-        
-        if ($proc.ExitCode -eq 0) {
-             Write-Host "Python Direct Install Success." -ForegroundColor Green
-             # Refresh PATH manually for this session
-             $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-             return $true
-        } else {
-             Write-Host "Python Install Failed. Exit Code: $($proc.ExitCode)" -ForegroundColor Red
-             return $false
-        }
+        # Check if it's a stub by seeing if it runs
+        $process = Start-Process -FilePath $path -ArgumentList "--version" -Wait -NoNewWindow -PassThru
+        if ($process.ExitCode -eq 0) { return $true }
     } catch {
-        Write-Host "[ERROR] Download or Install failed: $_" -ForegroundColor Red
         return $false
     }
+    return $false
 }
 
-# Check Python first
+# 1. Check Standard PATH
 if (Test-Command "python") {
-    $pyVer = python --version 2>&1
-    Write-Host "Python is already installed: $pyVer" -ForegroundColor Cyan
-} else {
-    Write-Host "Python not found. Attempting install..."
-    
-    # Method 1: Winget
-    if (Test-Command "winget") {
-        Write-Host "Method 1: Winget (Store/Package Manager)"
-        # Try generic Python 3
-        winget install -e --id Python.Python.3 --source winget --accept-package-agreements --accept-source-agreements
-        if ($LASTEXITCODE -ne 0) {
-             Write-Host "[WARNING] Winget failed. Trying fallback..." -ForegroundColor Yellow
-             
-             # Method 2: Direct Download
-             if (-not (Install-Python-Fallback)) {
-                 Write-Host "[CRITICAL ERROR] Python could not be installed." -ForegroundColor Red
-                 Write-Host "Please install Python 3.12 manually from python.org"
-                 Write-Host "Press Enter to exit..."
-                 Read-Host
-                 exit 1
-             }
-        }
-    } else {
-        # Method 2 Only
-        Write-Host "[INFO] Winget not found. Using direct installer."
-        if (-not (Install-Python-Fallback)) {
-             Write-Host "[CRITICAL ERROR] Python could not be installed." -ForegroundColor Red
-             exit 1
-        }
+    $verCmd = python --version 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Python found in PATH: $verCmd" -ForegroundColor Cyan
+        $isPythonInstalled = $true
+    }
+} 
+
+# 2. Check py launcher
+if (-not $isPythonInstalled -and (Test-Command "py")) {
+    $verCmd = py --version 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Python launcher (py.exe) found: $verCmd" -ForegroundColor Cyan
+        $isPythonInstalled = $true
+    }
+} 
+
+# 3. Check WindowsApps explicitly (Verify it's not a stub)
+if (-not $isPythonInstalled) {
+    if (Verify-Python $windowsAppsPy) {
+        Write-Host "Python found in WindowsApps (Verified)." -ForegroundColor Cyan
+        $isPythonInstalled = $true
+    } elseif (Verify-Python $windowsAppsPy3) {
+        Write-Host "Python3 found in WindowsApps (Verified)." -ForegroundColor Cyan
+        $isPythonInstalled = $true
     }
 }
 
-# Verify again
-$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-if (-not (Test-Command "python")) {
-     Write-Host "[WARNING] Python installed but not found in PATH yet." -ForegroundColor Yellow
-     Write-Host "A reboot will be required."
+if (-not $isPythonInstalled) {
+    Write-Host "Python not found or broken (Stub detected). Attempting install via winget..."
+    if (Test-Command "winget") {
+        # Try generic Python 3 first
+        winget install -e --id Python.Python.3 --source winget --accept-package-agreements --accept-source-agreements
+        if ($LASTEXITCODE -ne 0) {
+             Write-Host "[WARNING] Failed to install 'Python.Python.3'. Trying 'Python.Python.3.12'..." -ForegroundColor Yellow
+             winget install -e --id Python.Python.3.12 --source winget --accept-package-agreements --accept-source-agreements
+        }
+        
+        # Verify success after install
+        Write-Host "Verifying installation..."
+        if (Verify-Python "python") {
+            Write-Host "Python Installed Successfully." -ForegroundColor Green
+        } else {
+            Write-Host "[WARNING] Python installed but not yet recognizable. A reboot is highly recommended." -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "[ERROR] 'winget' not found and Python is missing." -ForegroundColor Red
+        Write-Host "Please install Python manually from python.org"
+    }
+} else {
+    Write-Host "Skipping Python install (Verified working)."
 }
 
 # Install SumatraPDF (Always try update/install)
@@ -144,14 +145,33 @@ try {
     # Refresh env vars for current session
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
     
-    if (Test-Command "python") {
-        Write-Host "Running pip install..."
-        python -m pip install --upgrade pip
-        python -m pip install watchdog pystray Pillow pywin32
-        Write-Host "Pip install complete."
-    } else {
-        Write-Host "[WARNING] Python command still not found. You may need to restart and run this again." -ForegroundColor Yellow
+    # Try different python commands for pip
+    $pipCmd = "python"
+    
+    if (-not (Test-Command "python")) {
+        if (Test-Command "py") {
+             $pipCmd = "py"
+        } elseif (Test-Path $windowsAppsPy) {
+             $f = Get-Item $windowsAppsPy
+             if ($f.Length -gt 0) {
+                 $pipCmd = "`"$windowsAppsPy`""
+             }
+        }
     }
+    
+    Write-Host "Running pip install using: $pipCmd"
+    
+    # Invoke-Expression is sometimes flagged, but simple arguments are usually ok
+    if ($pipCmd -match "WindowsApps") {
+        Start-Process -FilePath $windowsAppsPy -ArgumentList "-m pip install --upgrade pip" -Wait -NoNewWindow
+        Start-Process -FilePath $windowsAppsPy -ArgumentList "-m pip install watchdog pystray Pillow pywin32" -Wait -NoNewWindow
+    } else {
+        & $pipCmd -m pip install --upgrade pip
+        & $pipCmd -m pip install watchdog pystray Pillow pywin32
+    }
+
+    Write-Host "Pip install complete."
+
 } catch {
     Write-Host "[ERROR] Failed to install libraries: $_" -ForegroundColor Red
 }
