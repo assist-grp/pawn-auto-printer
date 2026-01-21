@@ -552,7 +552,7 @@
             <div class="nav-label">Getting Started</div>
             <a href="#intro" class="nav-link active"><span>はじめに</span></a>
             <a href="#setup" class="nav-link"><span>セットアップ</span></a>
-            <a href="#startup" class="nav-link"><span>自動起動</span></a>
+            <a href="#shortcut" class="nav-link"><span>デスクトップアイコン</span></a>
         </div>
 
         <div class="nav-group">
@@ -592,7 +592,7 @@
             <a href="#usage" class="quick-card">
                 <div class="quick-icon">📝</div>
                 <h3>自動ルール</h3>
-                <p>ファイル名に "PRINT_A4" を含めるだけ。</p>
+                <p>ファイル名に "PRINT_A4" / "PRINT_A5" を含めるだけ。</p>
             </a>
         </div>
 
@@ -606,8 +606,8 @@
                         <div class="step-number">1</div>
                         <div>
                             <strong>ファイルの解凍</strong><br>
-                            ダウンロードした <span class="file-pill">pawn-auto-printer.zip</span>
-                            を右クリックし、「すべて展開」を選びます。解凍後のフォルダを開いてください。
+                            ダウンロードした <span class="file-pill">pawn-auto-printer.zip</span> を右クリックし、「すべて展開」を選びます。<br>
+                            <small>※解凍して出てきたフォルダを開いてください（場所はどこでもOK）。</small>
                         </div>
                     </div>
                     <div class="step-item">
@@ -615,7 +615,9 @@
                         <div>
                             <strong>インストールの実行</strong><br>
                             フォルダ内の <span class="file-pill">install_all.bat</span> を <strong>右クリック → 「管理者として実行」</strong>
-                            してください。
+                            <strong style="color: var(--primary);">【自動設定】</strong><br>
+                            アプリは自動的に <code>C:\pawn-auto-printer</code> にインストールされます。<br>
+                            <small>※元の解凍フォルダはインストール後に削除しても大丈夫です。</small>
                         </div>
                     </div>
                 </div>
@@ -636,22 +638,33 @@
         </section>
 
         <!-- 自動起動 -->
-        <section id="startup">
-            <h2>自動起動の設定</h2>
+        <!-- デスクトップアイコンの追加 -->
+        <section id="shortcut">
+            <h2>デスクトップにアイコンを追加する（任意）</h2>
             <div class="card">
-                <p>再起動後、一度だけ以下の操作を行うと、毎日パソコンを起動した時にアプリが自動でバックグラウンドで動き始めます。</p>
+                <p>アプリは自動で起動しますが、手動で開いたりログを確認したい時のために、デスクトップにアイコンを出しておくと便利です。</p>
                 <div class="step-list">
                     <div class="step-item">
                         <div class="step-number">1</div>
-                        <div>フォルダ内の <span class="file-pill">create_desktop_shortcut.bat</span> をダブルクリックして実行します。</div>
+                        <div>
+                            <strong>スクリプトの実行</strong><br>
+                            インストール完了後、自動的に開いたフォルダの中にある <span class="file-pill">create_desktop_shortcut.bat</span>
+                            をダブルクリックしてください。
+                        </div>
                     </div>
                     <div class="step-item">
                         <div class="step-number">2</div>
-                        <div>デスクトップに作成された <strong>「PDF Auto Printer」</strong> アイコンから一度アプリを起動します。</div>
+                        <div>
+                            <strong>完了</strong><br>
+                            これだけでデスクトップに <strong>「PDF Auto Printer」</strong> のアイコンが作成されます。
+                        </div>
                     </div>
                 </div>
-                <div class="mock-ui">
-                    <strong>動作確認：</strong> 画面右下のタスクトレイ（時計の横）にある、水色のプリンターアイコンを探してください。
+                <div class="callout callout-info">
+                    <div class="callout-icon">💡</div>
+                    <div class="callout-content">
+                        <strong>ポイント：</strong> このアイコンをダブルクリックすれば、いつでも設定画面（トレイアイコン）を表示・再起動できます。
+                    </div>
                 </div>
             </div>
         </section>

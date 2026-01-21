@@ -21,7 +21,39 @@ if %errorlevel% neq 0 (
 )
 
 echo 管理者権限: OK
-echo 実行ディレクトリ: "%cd%"
+echo.
+
+:: ==========================================
+:: Auto-Relocation to C:\pawn-auto-printer
+:: ==========================================
+set "INSTALL_DIR=%SystemDrive%\pawn-auto-printer"
+
+:: Remove trailing backslash if present (for comparison)
+if "%CD:~-1%"=="\" set "CURRENT_DIR=%CD:~0,-1%"
+if not "%CD:~-1%"=="\" set "CURRENT_DIR=%CD%"
+
+if /i "%CURRENT_DIR%" neq "%INSTALL_DIR%" (
+    echo ==========================================
+    echo インストール先への自動移動
+    echo ==========================================
+    echo 安全な動作のため、アプリを Cドライブ直下 (%INSTALL_DIR%) にインストールします。
+    echo.
+    
+    if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
+    
+    echo ファイルをコピー中...
+    xcopy /Y /E /I "*.*" "%INSTALL_DIR%\" >nul
+    
+    echo.
+    echo コピー完了！ 新しい場所でインストールを続行します...
+    timeout /t 2 >nul
+    
+    :: Launch the installer in the new location and exit this one
+    start "" /d "%INSTALL_DIR%" "%INSTALL_DIR%\install_all.bat"
+    exit /b
+)
+
+echo 実行ディレクトリ: "%cd%" (インストール先)
 echo.
 
 echo ==========================================
@@ -84,6 +116,9 @@ echo ==========================================
 echo.
 echo 【重要】パソコンを再起動してください。
 echo 再起動後、アプリが自動的に動き始めます。
+echo.
+echo フォルダを開きます...
+start "" "%INSTALL_DIR%"
 echo.
 echo 何かキーを押すとこの画面を閉じます...
 pause >nul
