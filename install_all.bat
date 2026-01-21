@@ -47,7 +47,7 @@ if /i "%CURRENT_DIR%" neq "%INSTALL_DIR%" (
     echo Copy complete! Continuing installation in new location...
     timeout /t 2 >nul
     
-    :: Launch the installer in the new location and exit this one
+    REM Launch the installer in the new location and exit this one
     start "" /d "%INSTALL_DIR%" "%INSTALL_DIR%\install_all.bat"
     exit /b
 )
