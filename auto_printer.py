@@ -67,10 +67,10 @@ class PDFHandler(FileSystemEventHandler):
         if filename.lower().endswith(".html.pdf"):
             return
             
-        logging.info(f"FILE CREATED: {filename}")
+        # logging.info(f"FILE CREATED: {filename}") # Avoid spam
         if filename.lower().endswith((".pdf", ".html")):
-            # 待機時間をさらに短縮 (0.5s -> 0.1s)
-            time.sleep(0.1)
+            # Remove sleep for instant reaction
+            # time.sleep(0.1) 
             self.process_file(event.src_path, filename)
     
     def on_moved(self, event):
@@ -83,11 +83,11 @@ class PDFHandler(FileSystemEventHandler):
         if dest_filename.lower().endswith(".html.pdf"):
             return
             
-        logging.info(f"FILE MOVED/RENAMED: {os.path.basename(event.src_path)} -> {dest_filename}")
+        logging.info(f"FILE MOVED: {os.path.basename(event.src_path)} -> {dest_filename}")
         
         if dest_filename.lower().endswith((".pdf", ".html")):
-            # 待機時間をさらに短縮 (0.5s -> 0.1s)
-            time.sleep(0.1)
+            # Remove sleep for instant reaction
+            # time.sleep(0.1)
             self.process_file(event.dest_path, dest_filename)
     
     def on_modified(self, event):
@@ -96,40 +96,60 @@ class PDFHandler(FileSystemEventHandler):
         
         filename = os.path.basename(event.src_path)
         if filename.lower().endswith((".pdf", ".html")):
-            # Modified events fire multiple times, so we skip them
-            # to avoid duplicate printing
-            pass
+            # Enable on_modified to catch direct writes or updates
+            # Duplicates handled by process_file
+            self.process_file(event.src_path, filename)
+
+    def is_file_ready(self, file_path):
+        """Check if file is readable and not empty"""
+        try:
+            # Check size
+            if os.path.getsize(file_path) == 0:
+                return False
+            # Try to open for exclusive read
+            with open(file_path, 'rb') as f:
+                # Try to read a byte to ensure we actually can
+                f.read(1)
+            return True
+        except Exception:
+            return False
 
     def process_file(self, file_path, filename):
-        # Avoid processing the same file multiple times
+        # Avoid processing the same file multiple times (if already successfully printed)
         if file_path in self.processed_files:
-            logging.info(f"ALREADY PROCESSED: {filename}")
             return
         
         # Check if file is currently being processed
         if file_path in self.processing_lock:
-            logging.info(f"CURRENTLY PROCESSING: {filename}")
             return
         
         # Check if file still exists
         if not os.path.exists(file_path):
-            logging.info(f"FILE NO LONGER EXISTS: {filename}")
             return
-        
-        # Mark as being processed
-        self.processing_lock[file_path] = True
-        self.processed_files.add(file_path)
-        
+            
+        # Check matching rules FIRST before locking
         paper_size = None
-        
-        # Match filenames (Case-insensitive)
         upper_filename = filename.upper()
         if "PRINT_A4" in upper_filename:
             paper_size = "A4"
         elif "PRINT_A5" in upper_filename:
             paper_size = "A5"
+        else:
+            # Not a target file, mark as processed to ignore future events
+            self.processed_files.add(file_path)
+            logging.info(f"IGNORED: {filename}")
+            return
+
+        # Check if file is ready (not locked, has content)
+        if not self.is_file_ready(file_path):
+            # logging.info(f"FILE NOT READY: {filename}") # Avoid spam
+            return
         
-        if paper_size:
+        # Mark as being processed
+        self.processing_lock[file_path] = True
+        logging.info(f"PROCESSING: {filename}")
+        
+        try:
             logging.info(f"DETECTED: {filename} -> Target paper size {paper_size}")
             
             target_pdf = file_path
@@ -143,7 +163,8 @@ class PDFHandler(FileSystemEventHandler):
                     target_pdf = temp_pdf
                 else:
                     logging.error(f"CONVERSION FAILED: {filename}")
-                    if file_path in self.processing_lock: del self.processing_lock[file_path]
+                    # Don't mark as processed, maybe retry later? Or mark as failed?
+                    # For now, release lock and return.
                     return
 
             # PDFの印刷実行
@@ -153,6 +174,9 @@ class PDFHandler(FileSystemEventHandler):
             success = self.print_pdf(target_pdf, paper_size)
             
             if success:
+                # Mark as successfully processed ONLY after print
+                self.processed_files.add(file_path)
+                
                 if self.icon:
                     self.icon.notify(f"印刷完了: {filename}", "PDF Auto Printer")
                 # 印刷成功後、元のファイルを削除
@@ -160,7 +184,9 @@ class PDFHandler(FileSystemEventHandler):
                     if os.path.exists(file_path):
                         os.remove(file_path)
                         logging.info(f"ORIGINAL FILE DELETED: {file_path}")
-                        # 削除に成功したら、processed_filesからも削除する（再ダウンロード時に印刷できるようにするため）
+                        # 削除したらprocessed_filesからも消す（万が一同名ファイルが即座に来た場合のため）
+                        # ただし、OSがイベントを後追いで送ってくる可能性もあるので、
+                        # 少し残しておきたいが... 削除されたらイベントは来ないのでOK。
                         if file_path in self.processed_files:
                             self.processed_files.remove(file_path)
                 except Exception as e:
@@ -170,18 +196,19 @@ class PDFHandler(FileSystemEventHandler):
                 if is_html and os.path.exists(target_pdf):
                     try:
                         os.remove(target_pdf)
-                        logging.info(f"TEMP PDF DELETED: {target_pdf}")
-                    except Exception as e:
-                        logging.error(f"Failed to delete temp pdf: {e}")
-        else:
-            logging.info(f"SKIPPED: {filename} (filename does not match)")
-            # マッチしなかった場合もロックと処理済みリストから外す（将来的に同じ名前のファイルが来る可能性があるため）
-            if file_path in self.processed_files:
-                self.processed_files.remove(file_path)
+                    except Exception:
+                        pass
+            else:
+                logging.error(f"PRINT FAILED: {filename}")
+                # Don't add to processed_files, so it might retry if modified?
+                # Or adds risk of infinite loop if printer is broken.
+                # But for locked files vs printer errors, we should distinguish.
+                # Here we assume printer error is transient or file specific.
         
-        # Remove from processing lock
-        if file_path in self.processing_lock:
-            del self.processing_lock[file_path]
+        finally:
+            # Always release lock
+            if file_path in self.processing_lock:
+                del self.processing_lock[file_path]
 
     def convert_html_to_pdf(self, html_path, pdf_path):
         edge_path = config.get("edge_path", r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
