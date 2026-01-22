@@ -55,6 +55,18 @@ start_background.bat               # バックグラウンド実行（推奨）
 
 ## 🛠️ トラブルシューティング
 
+### ⚠️ ウイルス対策ソフトにブロックされる場合
+
+**Norton, McAfee, Avastなどでブロックされる場合:**
+
+インストールフォルダを「除外」に追加してください。
+詳細な手順は → **[ANTIVIRUS_SETUP.md](ANTIVIRUS_SETUP.md)** を参照
+
+**このアプリは安全です:**
+- オープンソース（全コード公開）
+- ウイルスではありません（誤検知です）
+- Windows Defenderの除外設定は自動で追加されます
+
 ### インストール検証
 
 ```cmd
@@ -78,6 +90,7 @@ check_status.bat
 - **日本語:** [INSTALL_JP.md](INSTALL_JP.md)
 - **English:** [INSTALL_EN.md](INSTALL_EN.md)
 - **トラブル対応:** [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+- **ウイルス対策ソフト対応:** [ANTIVIRUS_SETUP.md](ANTIVIRUS_SETUP.md) ⭐ NEW
 
 ## ⚙️ 管理コマンド
 

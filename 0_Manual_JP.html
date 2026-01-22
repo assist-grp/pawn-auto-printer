@@ -478,6 +478,25 @@
             text-align: center;
         }
 
+        /* Video Container */
+        .video-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            height: 0;
+            overflow: hidden;
+            margin: 24px 0;
+        }
+
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+
         /* Glassmorphism background hints */
         .glass-bg {
             position: fixed;
@@ -551,6 +570,7 @@
         <div class="nav-group">
             <div class="nav-label">Getting Started</div>
             <a href="#intro" class="nav-link active"><span>はじめに</span></a>
+            <a href="#video" class="nav-link"><span>動画ガイド</span></a>
             <a href="#setup" class="nav-link"><span>セットアップ</span></a>
             <a href="#shortcut" class="nav-link"><span>デスクトップアイコン</span></a>
         </div>
@@ -596,6 +616,23 @@
             </a>
         </div>
 
+        <!-- インストール動画 -->
+        <section id="video">
+            <h2>インストール動画ガイド</h2>
+            <div class="card">
+                <p>セットアップの全体の流れを動画でご確認ください。約2分間でインストール完了までを説明します。</p>
+                <div class="video-container">
+                    <iframe width="560" height="315" src="https://www.youtube.com/embed/43737KUwMHg?si=T2rczhnyfsLCWVFO" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                </div>
+                <div class="callout callout-info" style="margin-top: 24px;">
+                    <div class="callout-icon">📹</div>
+                    <div class="callout-content">
+                        <strong>注：</strong> 動画が見られない場合は、下記の「セットアップ」セクションで詳しい手順を確認してください。
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- セットアップ -->
         <section id="setup">
             <h2>セットアップ</h2>
@@ -620,12 +657,20 @@
                             <small>※アプリは解凍したフォルダ内で動作するため、別の場所へのコピーは不要です。</small>
                         </div>
                     </div>
+                    <div class="step-item">
+                        <div class="step-number">3</div>
+                        <div>
+                            <strong>インストール完了の確認</strong><br>
+                            黒い画面に <strong style="color: var(--success);">「Setup Complete!」</strong> と表示されたらインストール成功です。<br>
+                            <strong>「何かキーを押すとこの画面を閉じます...」</strong>と表示されたら、キーボードのキーをどれか押して画面を閉じてください。<br>
+                            <small>※その後、PCを再起動してください。再起動後、アプリが自動的に起動します。</small>
+                        </div>
+                    </div>
                 </div>
                 <div class="callout callout-info">
                     <div class="callout-icon">💡</div>
                     <div class="callout-content">
                         <strong>所要時間：</strong> 約2〜3分で完了します。黒い画面が表示されますので、完了するまでそのままお待ちください。
-                        <br>最後に<strong>「何かキーを押すとこの画面を閉じます...」</strong>と表示されたら、キーボードのキーをどれか押して画面を閉じてください。
                     </div>
                 </div>
                 <div class="callout callout-warning">
@@ -778,10 +823,22 @@
                 <p>フォルダ内の <span class="file-pill">unblock_files.bat</span> を実行してください。すべてのプログラムを一括で許可状態にします。</p>
 
                 <div class="callout callout-warning">
+                    <div class="callout-icon">⚠️</div>
+                    <div class="callout-content">
+                        <strong>ノートン（Norton）などのセキュリティソフトをお使いの方へ</strong><br>
+                        <strong>インストール中に「このプログラムは保護されていません」「疑わしいファイル」などの警告が表示されることがあります。</strong><br><br>
+                        <strong>対処法：</strong><br>
+                        1. 警告が表示されたら、「許可」「続行」などのボタンをクリックしてインストールを進めてください<br>
+                        2. ブロックされてインストールできない場合は、ノートンを一時的に無効化してからインストール実行、その後再度有効化してください<br>
+                        3. インストール完了後、フォルダ内の <span class="file-pill">unblock_files.bat</span> を実行して、すべてのプログラムを許可状態にしてください
+                    </div>
+                </div>
+
+                <div class="callout callout-warning">
                     <div class="callout-icon">💡</div>
                     <div class="callout-content">
-                        <strong>アンチウイルスソフト（Norton/McAfee等）をお使いの方へ</strong><br>
-                        まれに誤検知でファイルが削除されることがあります。その場合は「復元」し、対象フォルダを「除外設定（スキャン対象外）」に追加してください。
+                        <strong>実行後も動作がブロックされる場合：</strong><br>
+                        セキュリティソフトの「除外設定」「信頼できるソフトウェア」などに、このアプリのフォルダを追加してください。これにより、ソフトが正常に動作するようになります。
                     </div>
                 </div>
             </div>
@@ -862,19 +919,93 @@
 
         <!-- 手動インストール -->
         <section id="appendix">
-            <h2>付録：手動での導入手順</h2>
+            <h2>付録：インストール・アンインストール</h2>
+            
+            <h3>初期インストール（失敗した場合の手動導入）</h3>
             <div class="card" style="background-color: var(--bg-sidebar); border-style: dashed;">
                 <p>自動セットアップが失敗する場合のみ、以下のツールを個別にインストールしてください。</p>
                 <div style="display: flex; gap: 40px; margin-top: 20px;">
                     <div>
                         <strong>1. Python</strong><br>
-                        <a href="https://www.python.org/downloads/windows/">公式サイト</a>からダウンロード。<br>
+                        <a href="https://www.python.org/downloads/windows/" target="_blank">公式サイト</a>からダウンロード。<br>
                         <small>※「Add Python to PATH」に必ずチェック</small>
                     </div>
                     <div>
                         <strong>2. SumatraPDF</strong><br>
-                        <a href="https://www.sumatrapdfreader.org/">公式サイト</a>からダウンロード。<br>
+                        <a href="https://www.sumatrapdfreader.org/" target="_blank">公式サイト</a>からダウンロード。<br>
                         <small>※64-bit installer推奨</small>
+                    </div>
+                </div>
+            </div>
+
+            <h3>完全アンインストール（最初からやり直す場合）</h3>
+            <div class="card">
+                <p>インストール済みのパソコンから、すべての関連ファイルを削除する手順です。</p>
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-number">1</div>
+                        <div>
+                            <strong>アプリを停止</strong><br>
+                            フォルダ内の <span class="file-pill">stop_printer.bat</span> または <span class="file-pill">emergency_stop.bat</span> を実行してください。
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">2</div>
+                        <div>
+                            <strong>Windowsの「プログラムと機能」から削除</strong><br>
+                            <strong>「設定」→「アプリ」→「アプリと機能」</strong>を開き、以下を検索して削除します：<br>
+                            <ul>
+                                <li><strong>Python</strong> を検索し、見つかったもの（Python 3.x、Python Launcher等）をすべて削除<br>
+                                <small>※アンインストール時に「ユーザー設定も削除しますか？」と聞かれたら「はい」を選択</small></li>
+                                <li><strong>SumatraPDF</strong></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">3</div>
+                        <div>
+                            <strong>自動起動の設定を削除</strong><br>
+                            <strong>Windowsキー + R</strong> を押し、<span class="file-pill">shell:startup</span> と入力してEnterを押します。<br>
+                            開いたフォルダ内に「PDF Auto Printer」のショートカットがあれば削除してください。<br>
+                            <small>※これにより、次回起動時に自動起動されなくなります</small>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">4</div>
+                        <div>
+                            <strong>アプリフォルダを削除</strong><br>
+                            ダウンロードフォルダやデスクトップにある <span class="file-pill">pawn-auto-printer</span> フォルダを右クリックし、「削除」を選びます。<br>
+                            <small>※config.json（プリンター設定）も一緒に削除されます</small>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">5</div>
+                        <div>
+                            <strong>デスクトップショートカットを削除</strong><br>
+                            デスクトップに作成された「PDF Auto Printer」アイコンがあれば右クリックし、削除します。
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">6</div>
+                        <div>
+                            <strong>完了</strong><br>
+                            これでパソコンがすっきりリセットされました。新しいバージョンの解凍ファイルをダウンロードして、もう一度 <span class="file-pill">install_all.bat</span> から始められます。
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="callout callout-info">
+                    <div class="callout-icon">💡</div>
+                    <div class="callout-content">
+                        <strong>Pythonが削除できない場合：</strong><br>
+                        <strong>「コントロールパネル」→「プログラム」→「プログラムと機能」</strong>から削除してみてください。
+                    </div>
+                </div>
+
+                <div class="callout callout-warning">
+                    <div class="callout-icon">⚠️</div>
+                    <div class="callout-content">
+                        <strong>注意：</strong> Python を削除する際、他のアプリで Python を使っている場合があります。不安な場合は、Python を削除せず、アプリフォルダだけ削除して新バージョンを試してみてください。
                     </div>
                 </div>
             </div>
