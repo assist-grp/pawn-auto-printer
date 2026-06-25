@@ -2,7 +2,8 @@
 cd /d "%~dp0"
 
 REM Start the Python script hidden in background
-start /B pythonw auto_printer.py
+REM Use python (not pythonw) so pystray system tray icon works
+start /B python auto_printer.py
 
 REM Create a simple notification
 echo PDF Auto Printer started in background.

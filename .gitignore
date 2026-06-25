@@ -10,6 +10,7 @@ venv/
 
 # Windows logs and temp files
 printer_log.txt
+startup_debug.txt
 *.pdf
 *.tmp
 *.html.pdf

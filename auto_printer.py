@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 
 # DEBUG: Catch import errors immediately
 missing_packages = []
@@ -19,6 +20,7 @@ except ImportError as e:
 
 try:
     import threading
+    import queue
 except ImportError as e:
     missing_packages.append("threading")
 
@@ -65,11 +67,12 @@ def load_config():
             "target_printer": None,
             "auto_delete": True
         }
-    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+    with open(CONFIG_FILE, "r", encoding="utf-8-sig") as f:
         data = json.load(f)
         # Ensure all required keys exist with defaults
         defaults = {
             "target_printer": None,
+            "kanrihyo_printer": "",
             "auto_delete": True,
             "sumatra_path": "",
             "browser_path": "",
@@ -110,6 +113,60 @@ class PDFHandler(FileSystemEventHandler):
         self.processed_files = set()  # Track processed files to avoid duplicates
         self.processing_lock = {}  # Lock to prevent concurrent processing
         self.icon = None  # Reference to tray icon for notifications
+        # 検知と処理を分離するためのキューとワーカースレッド。
+        # イベントハンドラはキューに積むだけにして即座に戻ることで、
+        # 変換・印刷でブロックしている間に届く他ファイルのイベントを取りこぼさない。
+        self.work_queue = queue.Queue()
+        self.enqueued = set()  # 二重投入防止
+        self.failed_counts = {}  # ファイルごとの印刷失敗回数
+        self.max_retries = 3  # 再スキャンによる自動リトライの上限
+        self._worker = threading.Thread(target=self._worker_loop, daemon=True)
+        self._worker.start()
+
+    def enqueue(self, file_path, filename):
+        """ファイルを処理キューに積む（ブロックしない）。"""
+        if file_path in self.processed_files or file_path in self.enqueued:
+            return
+        self.enqueued.add(file_path)
+        self.work_queue.put((file_path, filename))
+
+    def _worker_loop(self):
+        """キューから1件ずつ取り出し、順番に変換・印刷する専用スレッド。"""
+        while True:
+            file_path, filename = self.work_queue.get()
+            try:
+                self.process_file(file_path, filename)
+            except Exception as e:
+                logging.error(f"WORKER ERROR: {filename}: {e}")
+            finally:
+                self.enqueued.discard(file_path)
+                self.work_queue.task_done()
+
+    def seed_existing(self, directory):
+        """起動時に既にあるファイルは処理済み扱いにして無視する（従来の挙動を維持）。
+        再スキャンの対象を『起動後に現れたファイル』だけに限定するため。"""
+        try:
+            for name in os.listdir(directory):
+                low = name.lower()
+                if low.endswith((".html", ".pdf")):
+                    self.processed_files.add(os.path.join(directory, name))
+        except Exception as e:
+            logging.error(f"SEED ERROR: {e}")
+
+    def scan_existing(self, directory):
+        """フォルダを定期的に再スキャンし、イベントを取りこぼした未処理ファイルを救済する。"""
+        while True:
+            try:
+                for name in os.listdir(directory):
+                    low = name.lower()
+                    if low.endswith(".html.pdf"):
+                        continue
+                    if low.endswith((".html", ".pdf")):
+                        fp = os.path.join(directory, name)
+                        self.enqueue(fp, name)
+            except Exception as e:
+                logging.error(f"RESCAN ERROR: {e}")
+            time.sleep(3)
     
     def on_created(self, event):
         if event.is_directory:
@@ -122,10 +179,9 @@ class PDFHandler(FileSystemEventHandler):
             
         # logging.info(f"FILE CREATED: {filename}") # Avoid spam
         if filename.lower().endswith((".pdf", ".html")):
-            # Remove sleep for instant reaction
-            # time.sleep(0.1) 
-            self.process_file(event.src_path, filename)
-    
+            # キューに積むだけ（ブロックしない）→ 取りこぼし防止
+            self.enqueue(event.src_path, filename)
+
     def on_moved(self, event):
         """Handle file rename/move events (e.g., .tmp -> .pdf/html)"""
         if event.is_directory:
@@ -139,22 +195,25 @@ class PDFHandler(FileSystemEventHandler):
         logging.info(f"FILE MOVED: {os.path.basename(event.src_path)} -> {dest_filename}")
         
         if dest_filename.lower().endswith((".pdf", ".html")):
-            # Remove sleep for instant reaction
-            # time.sleep(0.1)
-            self.process_file(event.dest_path, dest_filename)
-    
+            # キューに積むだけ（ブロックしない）→ 取りこぼし防止
+            self.enqueue(event.dest_path, dest_filename)
+
     def on_modified(self, event):
         if event.is_directory:
             return
         
         filename = os.path.basename(event.src_path)
+        # 変換用の一時ファイル (*.html.pdf) は無視する
+        if filename.lower().endswith(".html.pdf"):
+            return
         # Only process modified event if file not yet in processed or processing
         if filename.lower().endswith((".pdf", ".html")):
             file_path = event.src_path
             # Skip if already processing or processed
             if file_path in self.processed_files or file_path in self.processing_lock:
                 return
-            self.process_file(file_path, filename)
+            # キューに積むだけ（ブロックしない）→ 取りこぼし防止
+            self.enqueue(file_path, filename)
 
     def is_file_ready(self, file_path, max_wait=1.0):
         """Check if file is readable and not empty with minimal wait"""
@@ -190,8 +249,16 @@ class PDFHandler(FileSystemEventHandler):
             
         # Check matching rules FIRST before locking
         paper_size = None
+        print_type = "normal"  # "normal" or "kanrihyo"
         upper_filename = filename.upper()
-        if "PRINT_A4" in upper_filename:
+        
+        # 管理票パターン: 管理票.pdf, 管理票(1).pdf, 管理票 (2).html など
+        kanrihyo_pattern = re.compile(r'^管理票[\s\(（]?.*\.(pdf|html)$', re.IGNORECASE)
+        
+        if kanrihyo_pattern.match(filename):
+            print_type = "kanrihyo"
+            paper_size = None  # ラベルプリンター側の設定に任せる
+        elif "PRINT_A4" in upper_filename:
             paper_size = "A4"
         elif "PRINT_A5" in upper_filename:
             paper_size = "A5"
@@ -212,7 +279,10 @@ class PDFHandler(FileSystemEventHandler):
         logging.info(f"PROCESSING: {filename} (ready check: {ready_time:.2f}s)")
         
         try:
-            logging.info(f"DETECTED: {filename} -> Target paper size {paper_size}")
+            if print_type == "kanrihyo":
+                logging.info(f"DETECTED: {filename} -> 管理票 (label printer)")
+            else:
+                logging.info(f"DETECTED: {filename} -> Target paper size {paper_size}")
             
             target_pdf = file_path
             is_html = filename.lower().endswith(".html")
@@ -235,7 +305,10 @@ class PDFHandler(FileSystemEventHandler):
                 self.icon.notify(f"印刷を開始します: {filename}", "PDF Auto Printer")
             
             print_start = time.time()
-            success = self.print_pdf(target_pdf, paper_size)
+            if print_type == "kanrihyo":
+                success = self.print_pdf_kanrihyo(target_pdf)
+            else:
+                success = self.print_pdf(target_pdf, paper_size)
             print_time = time.time() - print_start
             
             if success:
@@ -267,63 +340,24 @@ class PDFHandler(FileSystemEventHandler):
                     except Exception:
                         pass
             else:
-                logging.error(f"PRINT FAILED: {filename}")
-                # Don't add to processed_files, so it might retry if modified?
-                # Or adds risk of infinite loop if printer is broken.
-                # But for locked files vs printer errors, we should distinguish.
-                # Here we assume printer error is transient or file specific.
-        
+                # 失敗時はファイルを残すので定期再スキャンで自動リトライされる。
+                # ただし無限リトライを避けるため上限を設ける。上限到達で諦めて
+                # processed_files に入れ、再投入を止める（プリンター故障時のログ溢れ防止）。
+                count = self.failed_counts.get(file_path, 0) + 1
+                self.failed_counts[file_path] = count
+                if count >= self.max_retries:
+                    logging.error(f"PRINT FAILED (giving up after {count} tries): {filename}")
+                    self.processed_files.add(file_path)
+                    self.failed_counts.pop(file_path, None)
+                else:
+                    logging.error(f"PRINT FAILED (attempt {count}/{self.max_retries}, will retry): {filename}")
+
         finally:
             # Always release lock
             if file_path in self.processing_lock:
                 del self.processing_lock[file_path]
 
-    def preprocess_html(self, html_path):
-        """外部リソース（fonts.googleapis.com, debugbar等）のリンクを削除して高速化"""
-        try:
-            with open(html_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            
-            original_len = len(content)
-            import re
-            # 外部フォントのlinkタグを削除（改行を含む場合も対応: re.DOTALL）
-            content = re.sub(r'<link[^>]*href=["\'][^"\']*fonts\.googleapis\.com[^"\']*["\'][^>]*>', '', content, flags=re.IGNORECASE | re.DOTALL)
-            # fonts.googleapis.comがURLに改行を含む場合（https:\n//fonts...）
-            content = re.sub(r'<link[^>]*href=["\']https?:\s*//fonts\.googleapis\.com[^"\']*["\'][^>]*>', '', content, flags=re.IGNORECASE | re.DOTALL)
-            # 外部CSSのlinkタグを削除（fonts.gstatic.com, fontawesome等）
-            content = re.sub(r'<link[^>]*href=["\'][^"\']*fonts\.gstatic\.com[^"\']*["\'][^>]*>', '', content, flags=re.IGNORECASE | re.DOTALL)
-            content = re.sub(r'<link[^>]*href=["\'][^"\']*fontawesome[^"\']*["\'][^>]*>', '', content, flags=re.IGNORECASE | re.DOTALL)
-            # @import url(...)も削除
-            content = re.sub(r'@import\s+url\([^)]*fonts\.googleapis\.com[^)]*\);?', '', content, flags=re.IGNORECASE | re.DOTALL)
-            content = re.sub(r'@import\s+url\([^)]*fontawesome[^)]*\);?', '', content, flags=re.IGNORECASE | re.DOTALL)
-            
-            # DebugBar関連を削除（開発用なので本番印刷には不要）
-            content = re.sub(r'<link[^>]*href=["\']?[^"\']*_debugbar[^"\']*["\']?[^>]*>', '', content, flags=re.IGNORECASE | re.DOTALL)
-            content = re.sub(r'<script[^>]*src=["\']?[^"\']*_debugbar[^"\']*["\']?[^>]*></script>', '', content, flags=re.IGNORECASE | re.DOTALL)
-            content = re.sub(r'<script[^>]*>jQuery\.noConflict\(true\);</script>', '', content, flags=re.IGNORECASE | re.DOTALL)
-            
-            # CSS内のNunitoフォント参照をシステムフォントに置換（外部フォント読み込みを防止）
-            content = re.sub(r'font-family:\s*Nunito\s*,', 'font-family:system-ui,', content, flags=re.IGNORECASE)
-            content = re.sub(r"font-family:\s*'Nunito'\s*,", 'font-family:system-ui,', content, flags=re.IGNORECASE)
-            content = re.sub(r'font-family:\s*"Nunito"\s*,', 'font-family:system-ui,', content, flags=re.IGNORECASE)
-            
-            removed_bytes = original_len - len(content)
-            
-            # 前処理済みファイルを一時保存
-            preprocessed_path = html_path + ".preprocessed.html"
-            with open(preprocessed_path, 'w', encoding='utf-8') as f:
-                f.write(content)
-            
-            logging.info(f"PREPROCESSED: {os.path.basename(html_path)} (removed {removed_bytes} bytes of external resources)")
-            return preprocessed_path
-        except Exception as e:
-            logging.error(f"HTML Preprocess Error: {e}")
-            return html_path  # 失敗時は元ファイルを使用
-
     def convert_html_to_pdf(self, html_path, pdf_path):
-        # 前処理: 外部リソースを削除
-        preprocessed_path = self.preprocess_html(html_path)
-        
         # ブラウザのパスを探す (Edge -> Chromeの順)
         browser_path = config.get("browser_path")
         
@@ -332,11 +366,11 @@ class PDFHandler(FileSystemEventHandler):
                 # Edge
                 r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
                 r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-                os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "Edge\Application\msedge.exe"),
+                os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", r"Edge\Application\msedge.exe"),
                 # Chrome (Added support)
                 r"C:\Program Files\Google\Chrome\Application\chrome.exe",
                 r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-                os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome\Application\chrome.exe"),
+                os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", r"Chrome\Application\chrome.exe"),
             ]
             for p in possible_paths:
                 if os.path.exists(p):
@@ -352,108 +386,75 @@ class PDFHandler(FileSystemEventHandler):
             config["browser_path"] = browser_path
             save_config(config)
 
-        # 固定のユーザーデータディレクトリを使用（プロファイル作成を回避して高速化）
-        user_data_dir = os.path.join(os.environ.get("TEMP", "C:\\Temp"), "pawn_printer_browser")
-        cache_dir = os.path.join(os.environ.get("TEMP", "C:\\Temp"), "pawn_printer_cache")
-        
         command = [
             browser_path,
             "--headless=new",
-            f"--user-data-dir={user_data_dir}",
-            f"--disk-cache-dir={cache_dir}",
-            "--disk-cache-size=104857600",
             "--disable-gpu",
-            "--no-sandbox",
             "--disable-software-rasterizer",
             "--disable-dev-shm-usage",
-            "--disable-extensions",
-            "--disable-plugins",
-            "--no-first-run",
-            "--no-default-browser-check",
-            "--disable-sync",
-            "--disable-translate",
-            "--disable-component-update",
-            "--disable-background-networking",
-            "--disable-client-side-phishing-detection",
-            "--disable-default-apps",
-            "--disable-hang-monitor",
-            "--disable-popup-blocking",
-            "--disable-prompt-on-repost",
-            "--metrics-recording-only",
-            "--safebrowsing-disable-auto-update",
             f"--print-to-pdf={pdf_path}",
             "--no-margins",
             "--include-background",
+            "--run-all-compositor-stages-before-draw",
+            "--virtual-time-budget=5000",  # 描画・リソース読み込みが完了するまで待ってからPDF化（白紙対策）
             "--no-pdf-header-footer",
-            f"file:///{os.path.abspath(preprocessed_path).replace('\\', '/')}"
+            f"file:///{os.path.abspath(html_path).replace('\\', '/')}"
         ]
         
         try:
-            subprocess.run(command, check=True, timeout=60, creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
-            # 前処理ファイルを削除
-            if preprocessed_path != html_path and os.path.exists(preprocessed_path):
-                try:
-                    os.remove(preprocessed_path)
-                except:
-                    pass
+            # Reduced timeout for faster failure detection
+            subprocess.run(command, check=True, timeout=15, creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
             return True
         except Exception as e:
             logging.error(f"Browser Conversion Error: {e}")
-            # エラー時も前処理ファイルを削除
-            if preprocessed_path != html_path and os.path.exists(preprocessed_path):
-                try:
-                    os.remove(preprocessed_path)
-                except:
-                    pass
             return False
 
-    def print_pdf(self, file_path, paper_size):
+    def find_sumatra(self):
+        """SumatraPDFのパスを検索・キャッシュする共通メソッド"""
         sumatra_path = config.get("sumatra_path")
         
-        # SumatraPDFのパスを探す
-        if not sumatra_path or not os.path.exists(sumatra_path):
-            # 一般的なインストール場所を検索
-            possible_paths = [
-                r"C:\Program Files\SumatraPDF\SumatraPDF.exe",
-                r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe",
-                os.path.join(os.environ.get("LOCALAPPDATA", ""), "SumatraPDF", "SumatraPDF.exe"),
-                os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WindowsApps", "SumatraPDF.exe"),
-                os.path.join(os.environ.get("PROGRAMFILES", ""), "SumatraPDF", "SumatraPDF.exe"),
-                os.path.join(os.environ.get("PROGRAMFILES(X86)", ""), "SumatraPDF", "SumatraPDF.exe"),
-            ]
-            
-            # Winget でインストールされた場所を追加検索
-            winget_paths = [
-                os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "SumatraPDF", "SumatraPDF.exe"),
-                os.path.join(os.environ.get("PROGRAMFILES", ""), "WindowsApps", "SumatraPDF*", "SumatraPDF.exe"),
-            ]
-            possible_paths.extend(winget_paths)
-            
-            for path in possible_paths:
-                # ワイルドカード対応
-                if "*" in path:
-                    import glob
-                    matches = glob.glob(path)
-                    if matches and os.path.exists(matches[0]):
-                        sumatra_path = matches[0]
-                        logging.info(f"SumatraPDF found: {sumatra_path}")
-                        # 設定に保存
-                        config["sumatra_path"] = sumatra_path
-                        save_config(config)
-                        break
-                elif os.path.exists(path):
-                    sumatra_path = path
-                    logging.info(f"SumatraPDF found: {sumatra_path}")
-                    # 設定に保存
-                    config["sumatra_path"] = sumatra_path
-                    save_config(config)
+        if sumatra_path and os.path.exists(sumatra_path):
+            return sumatra_path
+        
+        # 一般的なインストール場所を検索
+        possible_paths = [
+            r"C:\Program Files\SumatraPDF\SumatraPDF.exe",
+            r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe",
+            os.path.join(os.environ.get("LOCALAPPDATA", ""), "SumatraPDF", "SumatraPDF.exe"),
+            os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WindowsApps", "SumatraPDF.exe"),
+            os.path.join(os.environ.get("PROGRAMFILES", ""), "SumatraPDF", "SumatraPDF.exe"),
+            os.path.join(os.environ.get("PROGRAMFILES(X86)", ""), "SumatraPDF", "SumatraPDF.exe"),
+            # Winget でインストールされた場所
+            os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "SumatraPDF", "SumatraPDF.exe"),
+            os.path.join(os.environ.get("PROGRAMFILES", ""), "WindowsApps", "SumatraPDF*", "SumatraPDF.exe"),
+        ]
+        
+        for path in possible_paths:
+            if "*" in path:
+                import glob
+                matches = glob.glob(path)
+                if matches and os.path.exists(matches[0]):
+                    sumatra_path = matches[0]
                     break
-            else:
-                logging.error(f"ERROR: SumatraPDF not found. Checked locations:")
-                for path in possible_paths:
-                    logging.error(f"  - {path}")
-                logging.error("Please install SumatraPDF from: https://www.sumatrapdfreader.org/")
-                return False
+            elif os.path.exists(path):
+                sumatra_path = path
+                break
+        else:
+            logging.error(f"ERROR: SumatraPDF not found. Checked locations:")
+            for path in possible_paths:
+                logging.error(f"  - {path}")
+            logging.error("Please install SumatraPDF from: https://www.sumatrapdfreader.org/")
+            return None
+        
+        logging.info(f"SumatraPDF found: {sumatra_path}")
+        config["sumatra_path"] = sumatra_path
+        save_config(config)
+        return sumatra_path
+
+    def print_pdf(self, file_path, paper_size):
+        sumatra_path = self.find_sumatra()
+        if not sumatra_path:
+            return False
 
         # SumatraPDFコマンドの構築
         command = [
@@ -465,7 +466,7 @@ class PDFHandler(FileSystemEventHandler):
             command.append(config["target_printer"])
             
         command.extend([
-            "-print-settings", f"paper={paper_size},simplex,fit",  # fit オプション追加
+            "-print-settings", f"paper={paper_size},fit",  # fit オプション追加（simplex は一部プリンターで paper 指定と併用すると印刷失敗するため除外）
             "-silent",
             "-exit-on-print",  # 印刷後すぐに終了（待機時間削減）
             file_path
@@ -481,6 +482,42 @@ class PDFHandler(FileSystemEventHandler):
         except subprocess.CalledProcessError as e:
             logging.error(f"PRINT FAILED: {e}")
             return False
+
+    def print_pdf_kanrihyo(self, file_path):
+        """管理票をラベルプリンター(Brother QL-820NWB等)で印刷"""
+        kanrihyo_printer = config.get("kanrihyo_printer")
+        
+        if not kanrihyo_printer:
+            logging.error("ERROR: kanrihyo_printer not set in config.json")
+            return False
+        
+        sumatra_path = self.find_sumatra()
+        if not sumatra_path:
+            return False
+        
+        kanrihyo_paper_size = config.get("kanrihyo_paper_size", "")
+        
+        print_settings = "fit"
+        if kanrihyo_paper_size:
+            print_settings = f"paper={kanrihyo_paper_size},{print_settings}"
+        
+        command = [
+            sumatra_path,
+            "-print-to", kanrihyo_printer,
+            "-print-settings", print_settings,
+            "-silent",
+            "-exit-on-print",
+            file_path
+        ]
+        
+        try:
+            subprocess.run(command, check=True, timeout=30)
+            return True
+        except subprocess.TimeoutExpired:
+            logging.error(f"KANRIHYO PRINT TIMEOUT: {file_path} (30s)")
+            return False
+        except subprocess.CalledProcessError as e:
+            logging.error(f"KANRIHYO PRINT FAILED: {e}")
             return False
 
 if __name__ == "__main__":
@@ -492,6 +529,8 @@ if __name__ == "__main__":
         logging.info(f"Using default Downloads folder: {path}")
 
     event_handler = PDFHandler()
+    # 起動時点で既にあるファイルは無視（従来挙動）。再スキャンは起動後の新規ファイルのみ救済。
+    event_handler.seed_existing(path)
     observer = Observer()
     observer.schedule(event_handler, path, recursive=False)
     
@@ -499,6 +538,10 @@ if __name__ == "__main__":
     logging.info("Press Ctrl+C to stop.")
     
     observer.start()
+
+    # 定期再スキャン: イベントを取りこぼした未処理ファイルを確実に救済する保険。
+    rescan_thread = threading.Thread(target=event_handler.scan_existing, args=(path,), daemon=True)
+    rescan_thread.start()
 
     # System Tray Icon Setup
     def quit_app(icon, item):
@@ -518,7 +561,19 @@ if __name__ == "__main__":
                 logging.info(f"PRINTER SELECTED: {printer_name}")
                 if icon:
                     display_name = printer_name if printer_name else "Default Printer"
-                    icon.notify(f"プリンターを変更しました: {display_name}", "PDF Auto Printer")
+                    icon.notify(f"A4/A5プリンターを変更: {display_name}", "PDF Auto Printer")
+                # Re-create menu to update checkmarks
+                icon.menu = build_menu()
+            return inner
+
+        def set_kanrihyo_printer(printer_name):
+            def inner(icon, item):
+                config["kanrihyo_printer"] = printer_name
+                save_config(config)
+                logging.info(f"KANRIHYO PRINTER SELECTED: {printer_name}")
+                if icon:
+                    display_name = printer_name if printer_name else "(未設定)"
+                    icon.notify(f"管理票プリンターを変更: {display_name}", "PDF Auto Printer")
                 # Re-create menu to update checkmarks
                 icon.menu = build_menu()
             return inner
@@ -528,6 +583,7 @@ if __name__ == "__main__":
                 # Get list of printers
                 printers = [p[2] for p in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS)]
                 
+                # A4/A5 printer selection
                 printer_items = []
                 # Default option
                 printer_items.append(MenuItem(
@@ -544,8 +600,23 @@ if __name__ == "__main__":
                         checked=lambda item, p=p: config.get("target_printer") == p
                     ))
                 
+                # 管理票 printer selection
+                kanrihyo_items = []
+                kanrihyo_items.append(MenuItem(
+                    "(未設定)",
+                    set_kanrihyo_printer(""),
+                    checked=lambda item: not config.get("kanrihyo_printer")
+                ))
+                for p in printers:
+                    kanrihyo_items.append(MenuItem(
+                        p,
+                        set_kanrihyo_printer(p),
+                        checked=lambda item, p=p: config.get("kanrihyo_printer") == p
+                    ))
+                
                 return Menu(
-                    MenuItem('Select Printer', Menu(*printer_items)),
+                    MenuItem('A4/A5 Printer', Menu(*printer_items)),
+                    MenuItem('管理票 Printer', Menu(*kanrihyo_items)),
                     Menu.SEPARATOR,
                     MenuItem('Quit', quit_app)
                 )

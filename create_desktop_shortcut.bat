@@ -1,12 +1,14 @@
 @echo off
 echo Creating desktop shortcut for PDF Auto Printer...
 
-set SCRIPT_DIR=%~dp0
-set SHORTCUT_PATH=%USERPROFILE%\Desktop\PDF Auto Printer.lnk
+set "SCRIPT_DIR=%~dp0"
 
-powershell -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%SHORTCUT_PATH%');$s.TargetPath='%SCRIPT_DIR%start_hidden.vbs';$s.WorkingDirectory='%SCRIPT_DIR%';$s.IconLocation='%SCRIPT_DIR%app_icon.ico';$s.Description='PDF Auto Printer - Manual restart (auto-starts with Windows)';$s.Save()"
+:: デスクトップの場所は決め打ちせず、Windows に問い合わせて取得する。
+:: [Environment]::GetFolderPath('Desktop') は OneDrive にデスクトップが
+:: 移動（リダイレクト）されている環境でも、正しい実際のパスを返す。
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$d=[Environment]::GetFolderPath('Desktop'); $p=Join-Path $d 'PDF Auto Printer.lnk'; $w=New-Object -ComObject WScript.Shell; $s=$w.CreateShortcut($p); $s.TargetPath=Join-Path '%SCRIPT_DIR%' 'start_hidden.vbs'; $s.WorkingDirectory='%SCRIPT_DIR%'; $s.IconLocation=Join-Path '%SCRIPT_DIR%' 'app_icon.ico'; $s.Description='PDF Auto Printer - Manual restart (auto-starts with Windows)'; $s.Save(); if (Test-Path $p) { Write-Host ('Created: ' + $p); exit 0 } else { exit 1 }"
 
-if exist "%SHORTCUT_PATH%" (
+if %errorlevel% equ 0 (
     echo.
     echo Success! Shortcut created on Desktop.
     echo.
@@ -17,6 +19,8 @@ if exist "%SHORTCUT_PATH%" (
 ) else (
     echo.
     echo Failed to create shortcut.
+    echo Try right-clicking start_hidden.vbs and using
+    echo "Send to" - "Desktop (create shortcut)" instead.
 )
 
 echo.

@@ -3,6 +3,8 @@
     "sumatra_path": "",
     "browser_path": "",
     "log_file": "printer_log.txt",
-    "target_printer": null,
+    "target_printer": "",
+    "kanrihyo_printer": "",
+    "kanrihyo_paper_size": "62mm",
     "auto_delete": true
 }
