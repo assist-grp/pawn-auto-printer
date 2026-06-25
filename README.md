@@ -2,145 +2,133 @@
 
 **自動 PDF/HTML 印刷システム** - Windows での無人運用向け
 
+質札（PRINT_A4 / PRINT_A5）や管理票（ラベル）を、ダウンロードフォルダに入るだけで**自動で印刷**します。パソコン起動時に自動で立ち上がり、裏で待機します。
+
+---
+
+## 📚 ドキュメント（まずはここ）
+
+| 目的 | ドキュメント |
+|---|---|
+| **インストールしたい**（初心者向け・手順つき） | [INSTALL_JP.md](INSTALL_JP.md) |
+| **設定・毎日の使い方**（スタッフ向け） | [STAFF_GUIDE_JP.md](STAFF_GUIDE_JP.md) |
+| トラブル対応 | [INSTALL_JP.md](INSTALL_JP.md) の「トラブルシューティング」 / [TROUBLESHOOTING.md](TROUBLESHOOTING.md) |
+| ユーザーマニュアル | [0_Manual_JP.html](0_Manual_JP.html) |
+| English | [INSTALL_EN.md](INSTALL_EN.md) |
+
+---
+
 ## 🚀 クイックスタート
 
 ### 1. インストール（1回だけ）
 
-```cmd
-install_all.bat
-```
+`install_all.bat` を **右クリック →「管理者として実行」**。Python・SumatraPDF・必要な部品を自動でインストールします。
 
-管理者権限で実行してください。自動的に：
-- Python 3.9+ のインストール確認
-- SumatraPDF のダウンロード
-- 必要な Python パッケージをインストール
-- 初期設定ファイルを作成
+> ⚠️ `install_all.bat` が途中で止まる／エラーになる場合は `winget` の不調です。その場合は **手動インストール**（Python を python.org から、`py -m pip install pywin32 pystray watchdog Pillow`、SumatraPDF を公式サイトから）が確実です。詳細は [INSTALL_JP.md](INSTALL_JP.md)。
 
-### 2. 設定
+### 2. 起動
 
-`config.json` をテキストエディタで開いて、以下を設定：
+`start_hidden.vbs` を**ダブルクリック** → タスクトレイにアイコンが出れば動作中です（画面は出ません）。
 
-```json
-{
-    "watch_directory": "C:/Users/YourName/Downloads",
-    "sumatra_path": "C:/Program Files/SumatraPDF/SumatraPDF.exe",
-    "log_file": "printer_log.txt",
-    "auto_delete": true
-}
-```
+### 3. パソコン起動時に自動で立ち上げる
 
-### 3. 起動
+`register_autostart.bat` を **右クリック →「管理者として実行」**（最も確実）。
 
-```cmd
-run_printer.bat                    # コンソール表示で実行
-```
+### 4. プリンターを選ぶ
 
-または
+タスクトレイのアイコンを**右クリック**して、印刷先プリンターを選びます（→ [STAFF_GUIDE_JP.md](STAFF_GUIDE_JP.md)）。**config.json を手で編集する必要はありません。**
 
-```cmd
-start_background.bat               # バックグラウンド実行（推奨）
-```
+---
 
 ## 📄 使用方法
 
-監視フォルダに PDF または HTML ファイルを置き、**ファイル名に用紙サイズを指定**：
+監視フォルダ（通常はダウンロードフォルダ）に入ったファイルのうち、**ファイル名で印刷対象が決まります**：
 
 ```
 ✓ report_PRINT_A4.pdf        → PDF を A4 で印刷
 ✓ invoice_PRINT_A5.html      → HTML を PDF に変換して A5 で印刷
+✓ 管理票.html                → ラベルプリンターで印刷（管理票）
 ✗ document.pdf               → 無視される（マーカーなし）
 ```
 
-**対応用紙サイズ:** `PRINT_A4` / `PRINT_A5`（大文字・小文字の区別なし）
+| ファイル名 | 印刷先 |
+|---|---|
+| `…PRINT_A4….pdf` / `.html` | A4/A5 プリンター（A4） |
+| `…PRINT_A5….pdf` / `.html` | A4/A5 プリンター（A5） |
+| `管理票….html` / `.pdf` | 管理票プリンター（ラベル） |
 
-## 🛠️ トラブルシューティング
+---
 
-### インストール検証
+## ✨ 特徴
 
-```cmd
-verify_installation.bat
-```
+✅ **完全自動化** - ファイルが入るだけで印刷
+✅ **複数用紙サイズ** - A4/A5 を自動選択
+✅ **管理票（ラベル）対応** - QL-820NWB などのラベルプリンターに対応
+✅ **HTML 対応** - Edge/Chrome で自動変換
+✅ **プリンター選択** - トレイメニューから簡単切り替え（A4/A5 用・管理票用を個別に）
+✅ **連続印刷に強い** - 複数ファイルが同時に来ても取りこぼさない（キュー処理＋定期再スキャン）
+✅ **無人運用** - バックグラウンド実行・起動時自動立ち上げ
 
-### デバッグモード
+---
 
-```cmd
-debug_runner.bat
-```
+## ⚙️ 管理コマンド（.bat / .vbs）
 
-### ステータス確認
-
-```cmd
-check_status.bat
-```
-
-### 詳細ガイド
-
-- **日本語:** [INSTALL_JP.md](INSTALL_JP.md)
-- **English:** [INSTALL_EN.md](INSTALL_EN.md)
-- **トラブル対応:** [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
-
-## ⚙️ 管理コマンド
-
-| コマンド | 説明 |
+| ファイル | 説明 |
 |---------|------|
-| `run_printer.bat` | 起動（コンソール表示） |
+| `install_all.bat` | インストール（管理者として実行） |
+| `start_hidden.vbs` | 起動（非表示・推奨） |
 | `start_background.bat` | 起動（バックグラウンド） |
-| `debug_runner.bat` | デバッグモード |
+| `debug_runner.bat` | デバッグ起動（コンソールにエラー表示） |
+| `register_autostart.bat` | 起動時の自動立ち上げを登録（管理者として実行） |
+| `create_desktop_shortcut.bat` | デスクトップに手動起動用アイコンを作成 |
+| `verify_installation.bat` | インストール状態の確認 |
 | `stop_printer.bat` | 停止 |
-| `check_status.bat` | ステータス確認 |
-| `verify_installation.bat` | インストール検証 |
-| `create_desktop_shortcut.bat` | Windows 起動時に自動実行 |
+
+> アプリの**終了**は、トレイアイコンを右クリック →「Quit」が確実です。
+
+---
 
 ## 📋 システム要件
 
 - **Windows 10/11**
-- **Python 3.9+**
+- **Python 3.9 以上**
 - **SumatraPDF**（PDF 印刷用）
 - **Edge または Chrome**（HTML 変換用）
 
-## 📖 ドキュメント
+---
 
-- **インストールガイド（日本語）:** [INSTALL_JP.md](INSTALL_JP.md)
-- **インストールガイド（English）:** [INSTALL_EN.md](INSTALL_EN.md)
-- **トラブルシューティング:** [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
-- **ユーザー マニュアル:** [0_Manual_JP.html](0_Manual_JP.html)
-- **AI コーディング ガイド:** [.github/copilot-instructions.md](.github/copilot-instructions.md)
+## 🔧 設定（config.json）
 
-## 🔧 詳細設定
-
-`config.json` で以下も設定可能：
+プリンターの選択は**トレイメニューで行うのが基本**です（手編集不要）。以下は必要な場合のみ編集します（**保存は UTF-8**）：
 
 ```json
 {
-    "watch_directory": "監視フォルダ",
-    "sumatra_path": "SumatraPDF のパス",
-    "browser_path": "Edge/Chrome のパス（自動検出）",
-    "log_file": "ログファイル名",
-    "target_printer": "プリンター名（null=デフォルト）",
+    "watch_directory": "監視フォルダ（空ならダウンロードフォルダ）",
+    "sumatra_path": "SumatraPDF のパス（空なら自動検出）",
+    "browser_path": "Edge/Chrome のパス（空なら自動検出）",
+    "target_printer": "質札用プリンター（通常はトレイで設定）",
+    "kanrihyo_printer": "管理票用プリンター（通常はトレイで設定）",
+    "kanrihyo_paper_size": "管理票の用紙サイズ（例: 62mm）",
     "auto_delete": true
 }
 ```
 
+設定を変えたら、アプリを再起動（トレイ →「Quit」→ `start_hidden.vbs`）すると反映されます。
+
+---
+
 ## 📝 ログ確認
 
-```cmd
-type printer_log.txt
-```
+すべての処理は `printer_log.txt`（インストールフォルダ内）に記録されます。トラブル時はこのファイルを確認してください。
 
-## ✨ 特徴
-
-✅ **完全自動化** - ファイルを置くだけで印刷  
-✅ **複数用紙サイズ** - A4/A5 を自動選択  
-✅ **HTML 対応** - Edge/Chrome で自動変換  
-✅ **プリンター選択** - トレイメニューから簡単切り替え  
-✅ **無人運用** - バックグラウンド実行対応  
+---
 
 ## ⚠️ 注意事項
 
-- 初回起動時に依存ツール（SumatraPDF など）の自動検出・ダウンロードが行われます
-- ファイル名に `PRINT_A4` / `PRINT_A5` の指定は必須です
+- ファイル名に `PRINT_A4` / `PRINT_A5`、または `管理票…` の指定が必要です（それ以外は無視）
 - HTML ファイルは自動的に PDF に変換してから印刷します
-- **フォルダの場所:** アプリは解凍したフォルダで動作します。フォルダを移動する場合は、必ず移動後に `create_desktop_shortcut.bat` を再実行してください
+- **フォルダの場所を移動する場合**は、移動後に自動起動ショートカット（スタートアップ）とデスクトップショートカットを作り直してください。`config.json` を引き継げばプリンター設定は保持されます
+- ファイルが消える／起動しない場合は、ウイルス対策ソフトの誤検知が原因のことがあります（[INSTALL_JP.md](INSTALL_JP.md) の「問題 2-3」参照）
 
 ---
 
@@ -156,4 +144,4 @@ type printer_log.txt
 
 ---
 
-**更新日:** 2026年1月21日
+**更新日:** 2026年6月25日
