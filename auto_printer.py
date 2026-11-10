@@ -1,6 +1,9 @@
 import os
 import sys
 import re
+import tempfile
+import uuid
+from pathlib import Path
 
 # DEBUG: Catch import errors immediately
 missing_packages = []
@@ -130,6 +133,24 @@ class PDFHandler(FileSystemEventHandler):
         self.enqueued.add(file_path)
         self.work_queue.put((file_path, filename))
 
+    def enqueue_new_arrival(self, file_path, filename):
+        """新しく現れたファイル（作成・リネーム完了イベント）をキューに積む。
+        ブラウザは削除済みファイルの名前（例: 管理票 (22).html）を再利用するため、
+        同じパスが過去に「処理済み／諦め済み／起動時から存在」として記録されていても、
+        新規到着なら別ファイルとして扱い、記録を消してから積む。"""
+        self.processed_files.discard(file_path)
+        self.failed_counts.pop(file_path, None)
+        self.enqueue(file_path, filename)
+
+    def forget_missing_files(self):
+        """既に存在しないファイルの処理済み記録を捨てる。
+        イベントを取りこぼした場合でも、同名で再ダウンロードされたファイルを
+        定期再スキャンで拾えるようにする（記録の肥大化防止も兼ねる）。"""
+        for fp in list(self.processed_files):
+            if not os.path.exists(fp):
+                self.processed_files.discard(fp)
+                self.failed_counts.pop(fp, None)
+
     def _worker_loop(self):
         """キューから1件ずつ取り出し、順番に変換・印刷する専用スレッド。"""
         while True:
@@ -157,6 +178,7 @@ class PDFHandler(FileSystemEventHandler):
         """フォルダを定期的に再スキャンし、イベントを取りこぼした未処理ファイルを救済する。"""
         while True:
             try:
+                self.forget_missing_files()
                 for name in os.listdir(directory):
                     low = name.lower()
                     if low.endswith(".html.pdf"):
@@ -180,7 +202,7 @@ class PDFHandler(FileSystemEventHandler):
         # logging.info(f"FILE CREATED: {filename}") # Avoid spam
         if filename.lower().endswith((".pdf", ".html")):
             # キューに積むだけ（ブロックしない）→ 取りこぼし防止
-            self.enqueue(event.src_path, filename)
+            self.enqueue_new_arrival(event.src_path, filename)
 
     def on_moved(self, event):
         """Handle file rename/move events (e.g., .tmp -> .pdf/html)"""
@@ -196,7 +218,7 @@ class PDFHandler(FileSystemEventHandler):
         
         if dest_filename.lower().endswith((".pdf", ".html")):
             # キューに積むだけ（ブロックしない）→ 取りこぼし防止
-            self.enqueue(event.dest_path, dest_filename)
+            self.enqueue_new_arrival(event.dest_path, dest_filename)
 
     def on_modified(self, event):
         if event.is_directory:
@@ -298,6 +320,9 @@ class PDFHandler(FileSystemEventHandler):
                     logging.info(f"CONVERSION COMPLETE: {filename} ({convert_time:.2f}s)")
                 else:
                     logging.error(f"CONVERSION FAILED: {filename}")
+                    # 変換失敗も印刷失敗と同様にリトライ上限で打ち切る
+                    # （打ち切らないと定期再スキャンで3秒ごとに変換を繰り返してしまう）
+                    self.register_failure(file_path, filename)
                     return
 
             # PDFの印刷実行
@@ -340,22 +365,53 @@ class PDFHandler(FileSystemEventHandler):
                     except Exception:
                         pass
             else:
-                # 失敗時はファイルを残すので定期再スキャンで自動リトライされる。
-                # ただし無限リトライを避けるため上限を設ける。上限到達で諦めて
-                # processed_files に入れ、再投入を止める（プリンター故障時のログ溢れ防止）。
-                count = self.failed_counts.get(file_path, 0) + 1
-                self.failed_counts[file_path] = count
-                if count >= self.max_retries:
-                    logging.error(f"PRINT FAILED (giving up after {count} tries): {filename}")
-                    self.processed_files.add(file_path)
-                    self.failed_counts.pop(file_path, None)
-                else:
-                    logging.error(f"PRINT FAILED (attempt {count}/{self.max_retries}, will retry): {filename}")
+                self.register_failure(file_path, filename)
 
         finally:
             # Always release lock
             if file_path in self.processing_lock:
                 del self.processing_lock[file_path]
+
+    def register_failure(self, file_path, filename):
+        """失敗回数を数え、上限に達したら諦めて再投入を止める。
+        失敗時はファイルを残すので定期再スキャンで自動リトライされるが、
+        無限リトライを避けるため上限を設ける。上限到達で processed_files に入れ、
+        再投入を止める（プリンター故障時などのログ溢れ防止）。"""
+        count = self.failed_counts.get(file_path, 0) + 1
+        self.failed_counts[file_path] = count
+        if count >= self.max_retries:
+            logging.error(f"PRINT FAILED (giving up after {count} tries): {filename}")
+            self.processed_files.add(file_path)
+            self.failed_counts.pop(file_path, None)
+        else:
+            logging.error(f"PRINT FAILED (attempt {count}/{self.max_retries}, will retry): {filename}")
+
+    # 変換用HTMLの <head> 直後に差し込むスクリプト。
+    # 管理票HTMLは onload で window.print() を呼ぶが、Edge 157 以降の headless
+    # --print-to-pdf ではこれと衝突して PDF が生成されない（終了コードは 0 のまま）。
+    # 変換時だけ print/close を無効化する。
+    PRINT_GUARD_SCRIPT = b"<script>window.print=function(){};window.close=function(){};</script>"
+
+    def make_conversion_copy(self, html_path):
+        """window.print() を無効化した変換用コピーを一時フォルダに作り、そのパスを返す。
+        一時ファイル名は英数字のみ（日本語パス対策）。相対パス参照が壊れないよう
+        元フォルダを <base> で指定する。"""
+        with open(html_path, "rb") as f:
+            data = f.read()
+
+        inject = self.PRINT_GUARD_SCRIPT
+        if not re.search(rb"<base[\s>]", data, re.IGNORECASE):
+            base_href = (Path(html_path).resolve().parent.as_uri() + "/").encode("utf-8")
+            inject = b'<base href="' + base_href + b'">' + inject
+
+        new_data, n = re.subn(rb"(<head[^>]*>)", lambda m: m.group(1) + inject, data, count=1, flags=re.IGNORECASE)
+        if n == 0:
+            new_data = inject + data
+
+        tmp_path = os.path.join(tempfile.gettempdir(), f"pawn_print_{uuid.uuid4().hex}.html")
+        with open(tmp_path, "wb") as f:
+            f.write(new_data)
+        return tmp_path
 
     def convert_html_to_pdf(self, html_path, pdf_path):
         # ブラウザのパスを探す (Edge -> Chromeの順)
@@ -386,6 +442,19 @@ class PDFHandler(FileSystemEventHandler):
             config["browser_path"] = browser_path
             save_config(config)
 
+        # 前回の残りがあると「PDFができたか」の判定を誤るので先に消す
+        if os.path.exists(pdf_path):
+            try:
+                os.remove(pdf_path)
+            except Exception:
+                pass
+
+        try:
+            source_path = self.make_conversion_copy(html_path)
+        except Exception as e:
+            logging.error(f"Failed to prepare HTML for conversion: {e}")
+            return False
+
         command = [
             browser_path,
             "--headless=new",
@@ -398,16 +467,26 @@ class PDFHandler(FileSystemEventHandler):
             "--run-all-compositor-stages-before-draw",
             "--virtual-time-budget=5000",  # 描画・リソース読み込みが完了するまで待ってからPDF化（白紙対策）
             "--no-pdf-header-footer",
-            f"file:///{os.path.abspath(html_path).replace('\\', '/')}"
+            Path(source_path).as_uri()
         ]
-        
+
         try:
             # Reduced timeout for faster failure detection
             subprocess.run(command, check=True, timeout=15, creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
-            return True
         except Exception as e:
             logging.error(f"Browser Conversion Error: {e}")
             return False
+        finally:
+            try:
+                os.remove(source_path)
+            except Exception:
+                pass
+
+        # ブラウザは PDF を作れなくても終了コード 0 を返すことがあるため、実物を確認する
+        if not os.path.exists(pdf_path) or os.path.getsize(pdf_path) == 0:
+            logging.error(f"Browser exited without creating PDF: {pdf_path}")
+            return False
+        return True
 
     def find_sumatra(self):
         """SumatraPDFのパスを検索・キャッシュする共通メソッド"""
