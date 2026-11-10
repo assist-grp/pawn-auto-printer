@@ -15,7 +15,7 @@ from pathlib import Path
 # 止めたいときは config.json に "auto_update": false を書く。
 # 動いている間も毎日のメンテナンス（下の「毎日のメンテナンス」）で更新を確認する。
 # ------------------------------------------------------------
-APP_VERSION = "2026-11-10.2"
+APP_VERSION = "2026-11-10.3"
 DEFAULT_UPDATE_URL = "https://raw.githubusercontent.com/assist-grp/pawn-auto-printer/main/auto_printer.py"
 _UPDATED_ENV = "PAWN_AUTO_PRINTER_UPDATED"
 _UPDATED_FROM_ENV = "PAWN_AUTO_PRINTER_UPDATED_FROM"
@@ -912,15 +912,15 @@ def _restart_with_new_version(handler, old_hash):
 # ------------------------------------------------------------
 # 状況報告（どのPCに最新版が入っているか把握するため）
 # 起動時と毎日のメンテナンスのときに、Googleフォームへ PC名・版・場所・自動更新の可否を送る。
-# 回答はフォームにつながったスプレッドシートに1行ずつたまる（「シート1」でPCごとの最新を表示）。
+# 回答はフォームにつながったスプレッドシートに1行ずつたまる（「PCごとの最新」シートでPCごとの最新を表示）。
 # 送るだけで、失敗しても印刷には影響しない。止めたいときは config.json に "report": false を書く。
 # ------------------------------------------------------------
-REPORT_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfk9KQky5vwbi6kZQN-_1W1jPixLE3tm026SQwBHkYvvaoCEQ/formResponse"
+REPORT_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfwQ9uz_AaEjB6PFyYTU-6F-frkjNttrp_ujNBrtW9smdFdnQ/formResponse"
 REPORT_FIELDS = {
-    "pc": "entry.1919051211",           # PC名
-    "version": "entry.976938217",       # バージョン
-    "place": "entry.658338747",         # 場所
-    "auto_update": "entry.372646551",   # 自動更新
+    "pc": "entry.1798885157",           # PC名
+    "version": "entry.809843841",       # バージョン
+    "place": "entry.715387568",         # 場所
+    "auto_update": "entry.119468854",   # 自動更新
 }
 REPORT_RETRY_DELAY = 60   # 起動直後はネットワークがまだ繋がっていないことがあるので、失敗したら1分後に再送
 REPORT_RETRY_MAX = 5
