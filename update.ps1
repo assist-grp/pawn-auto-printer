@@ -8,7 +8,9 @@
 #      Startup and Desktop shortcuts. If none is found, searches the disk.
 #   2. Downloads the latest auto_printer.py from GitHub and replaces it
 #      (the old one is kept as auto_printer.py.bak).
-#   3. Restarts the app and shows the VERSION line from printer_log.txt.
+#   3. Checks that the app (running without admin rights) can write to its folder,
+#      which automatic updates need.
+#   4. Restarts the app and shows the VERSION line from printer_log.txt.
 # config.json (printer settings) and other files are NOT touched.
 #
 # This file is ASCII only on purpose (safe for Windows PowerShell 5.1 and "irm | iex").
@@ -118,6 +120,22 @@
     $newVersion = if ($text -match 'APP_VERSION = "([^"]+)"') { $Matches[1] } else { '?' }
     $newHash = (Get-FileHash -LiteralPath $tmp -Algorithm SHA256).Hash
 
+    # The app runs WITHOUT admin rights, so self-update only works if a normal user can write
+    # to the app folder (Program Files usually does not allow that).
+    $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+        [Security.Principal.WindowsBuiltInRole]::Administrator)
+    function Test-Writable($dir) {
+        $probe = Join-Path $dir ('write_test_' + [guid]::NewGuid().ToString('N') + '.tmp')
+        try {
+            [IO.File]::WriteAllText($probe, 'test')
+            Remove-Item -LiteralPath $probe -Force -ErrorAction SilentlyContinue
+            return $true
+        } catch {
+            return $false
+        }
+    }
+    $allWritable = $true
+
     Write-Host ''
     Write-Host "Latest version on GitHub: $newVersion (sha256 $($newHash.Substring(0, 8).ToLower()))"
     foreach ($f in $found.Values) {
@@ -125,16 +143,29 @@
         try {
             if ((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -eq $newHash) {
                 Write-Host "  [OK] already latest: $target" -ForegroundColor Green
-                continue
+            } else {
+                Copy-Item -LiteralPath $target -Destination ($target + '.bak') -Force
+                Copy-Item -LiteralPath $tmp -Destination $target -Force
+                Write-Host "  [OK] updated: $target" -ForegroundColor Green
             }
-            Copy-Item -LiteralPath $target -Destination ($target + '.bak') -Force
-            Copy-Item -LiteralPath $tmp -Destination $target -Force
-            Write-Host "  [OK] updated: $target" -ForegroundColor Green
         } catch {
             Write-Host "  [ERROR] could not update $target : $($_.Exception.Message)" -ForegroundColor Red
         }
+        if (-not $isAdmin) {
+            if (Test-Writable $f.Path) {
+                Write-Host '  [OK] auto-update can write to this folder' -ForegroundColor Green
+            } else {
+                $allWritable = $false
+                Write-Host '  [WARN] auto-update CANNOT write to this folder (admin rights needed).' -ForegroundColor Yellow
+                Write-Host '         The app will stay on the old version. Move the app to C:\pawn-auto-printer (see the manual).' -ForegroundColor Yellow
+            }
+        }
     }
     Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+    if ($isAdmin) {
+        Write-Host '  [NOTE] PowerShell is running as administrator, so the folder write check was skipped.' -ForegroundColor Yellow
+        Write-Host '         Run this command again in a normal (non-admin) PowerShell to check it.' -ForegroundColor Yellow
+    }
 
     # ---------- 3. Restart the app ----------
     $primary = @($found.Values)[0]   # running app > scheduled task > shortcut > disk search
@@ -172,7 +203,13 @@
         foreach ($l in $lines) { Write-Host "  $l" }
         Write-Host ''
         Write-Host 'Done. The app is running with the latest version.' -ForegroundColor Green
-        Write-Host 'From now on it updates itself automatically every time it starts.'
+        if ($isAdmin) {
+            Write-Host 'Automatic updates: not checked (see [NOTE] above).' -ForegroundColor Yellow
+        } elseif ($allWritable) {
+            Write-Host 'From now on it updates itself automatically every time it starts.'
+        } else {
+            Write-Host 'Automatic updates will NOT work in this folder (see [WARN] above).' -ForegroundColor Yellow
+        }
     } else {
         Write-Host '[WARN] The app did not write its VERSION line within 30 seconds.' -ForegroundColor Yellow
         Write-Host "       Check startup_debug.txt / startup_error.txt in: $($primary.Path)"

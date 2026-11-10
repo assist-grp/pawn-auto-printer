@@ -909,7 +909,7 @@
                 <div class="step-list">
                     <div class="step-item">
                         <div class="step-number">1</div>
-                        <div>スタートボタンを右クリック →「<strong>Windows PowerShell</strong>」（Windows 11 では「<strong>ターミナル</strong>」）を開きます。管理者として実行する必要はありません。</div>
+                        <div>スタートボタンを右クリック →「<strong>Windows PowerShell</strong>」（Windows 11 では「<strong>ターミナル</strong>」）を開きます。<strong>「管理者として実行」は選ばずに</strong>、普通に開いてください。</div>
                     </div>
                     <div class="step-item">
                         <div class="step-number">2</div>
@@ -923,7 +923,7 @@
                     </div>
                     <div class="step-item">
                         <div class="step-number">3</div>
-                        <div>最後に <span class="file-pill">VERSION: …</span> の行と「<strong>Done.</strong>」が表示されれば完了です。アプリは自動で再起動されるので、<strong>アプリやパソコンの再起動は不要</strong>です。</div>
+                        <div>最後に <span class="file-pill">VERSION: …</span> の行と「<strong>Done.</strong>」が表示されれば完了です。アプリは自動で再起動されるので、<strong>アプリやパソコンの再起動は不要</strong>です。あわせて、下の「自動更新できるかの確認」の表示も見てください。</div>
                     </div>
                 </div>
                 <div class="callout callout-info">
@@ -938,30 +938,41 @@
                 <div class="callout callout-warning">
                     <div class="callout-icon">⚠️</div>
                     <div class="callout-content">
-                        <strong>[ERROR]</strong> や <strong>[WARN]</strong> と表示されたときは、画面の文字をそのままコピーして IT 担当に送ってください。
+                        <strong>[ERROR]</strong> や、下の表にない <strong>[WARN]</strong> が表示されたときは、画面の文字をそのままコピーして IT 担当に送ってください。
                     </div>
                 </div>
 
-                <h3>自動更新できるか確認する（アプリを Program Files に置いている場合・最初の1回）</h3>
-                <p>アプリは管理者権限なしで動くため、アプリのフォルダに書き込めないと自動更新が失敗し、古い版のまま動き続けます。アプリを <span class="file-pill">C:\Program Files (x86)\pawn-auto-printer\dev\pawn-auto-printer</span> に置いているパソコンでは、一度だけ次の確認をしてください。</p>
+                <h3>自動更新できるかの確認（更新コマンドの結果を見る）</h3>
+                <p>アプリは管理者権限なしで動くため、アプリのフォルダに書き込めないと自動更新が失敗し、古い版のまま動き続けます（<span class="file-pill">C:\Program Files (x86)</span> の下は、ふつうは書き込めません）。上の更新コマンドはこの確認も一緒に行うので、表示された結果を見てください。</p>
+                <table style="width:100%; border-collapse:collapse; margin:16px 0;">
+                    <tr style="border-bottom:1px solid var(--border-color);"><th style="text-align:left; padding:10px;">表示</th><th style="text-align:left; padding:10px;">意味・やること</th></tr>
+                    <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:10px;"><span class="file-pill">[OK] auto-update can write to this folder</span></td><td style="padding:10px;">問題ありません。今後も自動で更新されます。</td></tr>
+                    <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:10px;"><span class="file-pill">[WARN] auto-update CANNOT write to this folder</span></td><td style="padding:10px;">このフォルダでは自動更新ができません。下の「アプリのフォルダを移す」の手順で、フォルダを移してください。</td></tr>
+                    <tr><td style="padding:10px;"><span class="file-pill">[NOTE] PowerShell is running as administrator</span></td><td style="padding:10px;">管理者として開いたため確認できていません。PowerShell を<strong>普通に</strong>開き直して、もう一度実行してください。</td></tr>
+                </table>
+
+                <h3>アプリのフォルダを移す（自動更新ができないと表示されたとき）</h3>
+                <p>おすすめの場所は <span class="file-pill">C:\pawn-auto-printer</span> です（管理者権限なしで書き込めて、どのパソコンでも同じ場所にできます）。</p>
                 <div class="step-list">
                     <div class="step-item">
                         <div class="step-number">1</div>
-                        <div>PowerShell を<strong>普通に</strong>開きます（右クリックで「管理者として実行」は<strong>選ばない</strong>でください。管理者で開くと正しく確認できません）。</div>
+                        <div>タスクトレイのアイコンを右クリック →「Quit」で、アプリを止めます。</div>
                     </div>
                     <div class="step-item">
                         <div class="step-number">2</div>
-                        <div>
-                            下のコマンドをコピーして貼り付け、Enter を押します。
-                            <div class="cmd-box">
-                                <pre id="write-test-cmd">New-Item "C:\Program Files (x86)\pawn-auto-printer\dev\pawn-auto-printer\write_test.txt" -Force | Out-Null; Remove-Item "C:\Program Files (x86)\pawn-auto-printer\dev\pawn-auto-printer\write_test.txt"; "OK: writable"</pre>
-                                <button type="button" class="cmd-copy" onclick="copyCmd('write-test-cmd', this)">コピー</button>
-                            </div>
-                        </div>
+                        <div>エクスプローラーで C ドライブに <span class="file-pill">pawn-auto-printer</span> フォルダを作り、今のアプリのフォルダの<strong>中身を全部コピー</strong>します（<span class="file-pill">config.json</span> も一緒にコピーすれば、プリンター設定はそのまま使えます）。</div>
                     </div>
                     <div class="step-item">
                         <div class="step-number">3</div>
-                        <div><span class="file-pill">OK: writable</span> と表示されれば問題ありません。「<strong>アクセスが拒否されました</strong>」と表示された場合は自動更新ができないので、IT 担当に連絡してください。</div>
+                        <div>新しいフォルダの <span class="file-pill">register_autostart.bat</span> を右クリック →「<strong>管理者として実行</strong>」（自動起動の登録し直し。アプリも起動します）。</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">4</div>
+                        <div>スタートアップに<strong>古い場所</strong>を指すショートカットが残っていれば削除します（アドレスバーに <span class="file-pill">shell:startup</span> と入力して Enter で開けます）。デスクトップのショートカットも、新しいフォルダの <span class="file-pill">create_desktop_shortcut.bat</span> で作り直します。</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">5</div>
+                        <div>上の更新コマンドをもう一度実行し、<span class="file-pill">[OK] auto-update can write to this folder</span> と出れば完了です。古いフォルダは削除してかまいません。</div>
                     </div>
                 </div>
 

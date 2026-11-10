@@ -133,6 +133,7 @@
 
 アプリは起動のたびに、GitHub の `main` ブランチにある `auto_printer.py` と手元のファイルを比べ、違っていれば差し替えてから新しい版で起動します。
 
+- アプリは管理者権限なしで動くので、**アプリのフォルダに管理者権限なしで書き込めることが必要**です（`C:\Program Files (x86)` の下は通常不可。おすすめは `C:\pawn-auto-printer`）
 - 更新されるのは `auto_printer.py` だけです。`config.json`（プリンター設定）などには触りません
 - 取得できない・中身が壊れているなどの場合は差し替えず、今の版のまま起動します
 - 差し替え前の版は `auto_printer.py.bak` に残ります（戻すときはこれを `auto_printer.py` にリネーム）
@@ -146,8 +147,10 @@ PowerShell を開き、**どのフォルダからでも**次の1行を貼り付�
 [Net.ServicePointManager]::SecurityProtocol='Tls12'; irm https://raw.githubusercontent.com/assist-grp/pawn-auto-printer/main/update.ps1 | iex
 ```
 
-[update.ps1](update.ps1) がアプリのフォルダを自動で探し（動いているアプリ → タスクスケジューラ「PDFAutoPrinter」→ スタートアップ／デスクトップのショートカット → 見つからなければディスクを検索）、`auto_printer.py` を最新版に差し替えてアプリを再起動します。最後に `VERSION: …` の行が表示されれば完了です。
+[update.ps1](update.ps1) がアプリのフォルダを自動で探し（動いているアプリ → タスクスケジューラ「PDFAutoPrinter」→ スタートアップ／デスクトップのショートカット → 見つからなければディスクを検索）、`auto_printer.py` を最新版に差し替え、そのフォルダに管理者権限なしで書き込めるか（＝自動更新できるか）を確認してから、アプリを再起動します。最後に `VERSION: …` の行が表示されれば完了です。
 
+- 管理者ではない普通の PowerShell で実行してください（管理者だと書き込み確認ができません）
+- `[WARN] auto-update CANNOT write to this folder` と出たら、そのフォルダでは自動更新できません。`C:\pawn-auto-printer` などへ移してください（手順は [STAFF_GUIDE_JP.md](STAFF_GUIDE_JP.md) の「8.」）
 - アプリを動かしている Windows ユーザーでサインインして実行してください（別ユーザーのアプリは見つけられません）
 - 再起動の瞬間にダウンロード中のファイルは印刷されないことがあるので、印刷していないときに実行してください
 

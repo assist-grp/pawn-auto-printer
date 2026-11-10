@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>自動印刷アプリ ガイド</title>
+<style>
+  :root{
+    --blue:#2563eb; --blue-d:#1e40af; --bg:#f5f7fa; --card:#ffffff;
+    --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb;
+    --warn-bg:#fff7ed; --warn-bd:#fb923c; --info-bg:#eff6ff; --info-bd:#60a5fa;
+    --ok-bg:#ecfdf5; --ok-bd:#34d399; --code-bg:#0f172a; --code-ink:#e2e8f0;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",sans-serif;
+    line-height:1.8; font-size:16px;
+  }
+  header{
+    background:linear-gradient(135deg,var(--blue),var(--blue-d)); color:#fff;
+    padding:28px 20px 20px;
+  }
+  header .wrap{max-width:880px;margin:0 auto}
+  header h1{margin:0 0 6px;font-size:24px}
+  header p{margin:0;opacity:.9;font-size:14px}
+  .tabs{
+    position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--line);
+    display:flex; gap:4px; padding:0 16px; box-shadow:0 2px 6px rgba(0,0,0,.04);
+  }
+  .tabs .wrap{max-width:880px;margin:0 auto;display:flex;gap:6px;width:100%}
+  .tab{
+    appearance:none;border:none;background:none;cursor:pointer;
+    padding:14px 18px;font-size:15px;font-weight:700;color:var(--muted);
+    border-bottom:3px solid transparent;
+  }
+  .tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+  main{max-width:880px;margin:0 auto;padding:24px 16px 80px}
+  section.page{display:none}
+  section.page.active{display:block}
+  h2{
+    font-size:20px;margin:30px 0 10px;padding:8px 0 8px 12px;
+    border-left:5px solid var(--blue); background:#fff; border-radius:0 8px 8px 0;
+  }
+  h3{font-size:16px;margin:20px 0 8px;color:var(--blue-d)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:12px 0;box-shadow:0 1px 3px rgba(0,0,0,.03)}
+  ul,ol{padding-left:22px;margin:8px 0}
+  li{margin:4px 0}
+  code{background:#eef2f7;color:#b91c1c;padding:1px 6px;border-radius:5px;font-family:"Consolas","SF Mono",monospace;font-size:.92em}
+  pre{background:var(--code-bg);color:var(--code-ink);padding:14px 16px;border-radius:10px;overflow:auto;font-family:"Consolas","SF Mono",monospace;font-size:13px;line-height:1.6}
+  pre code{background:none;color:inherit;padding:0}
+  pre.ascii{background:#0b1220;color:#9ae6b4;font-size:13px}
+  table{border-collapse:collapse;width:100%;margin:10px 0;background:#fff;border-radius:10px;overflow:hidden}
+  th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;font-size:14px;vertical-align:top}
+  th{background:#f1f5f9}
+  .callout{border-radius:10px;padding:12px 16px;margin:12px 0;border-left:5px solid}
+  .callout.warn{background:var(--warn-bg);border-color:var(--warn-bd)}
+  .callout.info{background:var(--info-bg);border-color:var(--info-bd)}
+  .callout.ok{background:var(--ok-bg);border-color:var(--ok-bd)}
+  .callout .ttl{font-weight:800;margin-bottom:4px}
+  .step{counter-reset:none}
+  .shot{border:2px dashed #cbd5e1;border-radius:10px;padding:10px;margin:12px 0;text-align:center;background:#fafafa}
+  .shot img{max-width:100%;border-radius:6px;display:block;margin:0 auto}
+  .shot.noimg img{display:none}
+  .shot .ph{display:none;color:var(--muted);font-size:13px;padding:24px 8px}
+  .shot.noimg .ph{display:block}
+  .shot .cap{color:var(--muted);font-size:12px;margin-top:6px}
+  .lead{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:14px 0}
+  .pill{display:inline-block;background:var(--blue);color:#fff;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;margin-right:6px}
+  footer{max-width:880px;margin:0 auto;padding:20px 16px 60px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+  a{color:var(--blue)}
+  @media(max-width:600px){header h1{font-size:20px}.tab{padding:12px 10px;font-size:13px}}
+  /* Windows エラーダイアログの再現 */
+  .errdlg{max-width:480px;margin:14px auto;border:1px solid #b9b9b9;border-radius:6px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,.18);background:#fff}
+  .errdlg .bar{background:#f0f0f0;border-bottom:1px solid #e2e2e2;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;color:#333;font-size:13px;font-weight:600}
+  .errdlg .bar .x{color:#888;font-weight:400}
+  .errdlg .body{display:flex;gap:14px;align-items:flex-start;padding:18px 16px}
+  .errdlg .eico{flex:none;width:34px;height:34px;border-radius:50%;background:#e81123;color:#fff;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700}
+  .errdlg .msg{color:#222;line-height:1.6;font-size:14px;word-break:break-all}
+  .errdlg .btns{display:flex;justify-content:center;padding:0 16px 16px}
+  .errdlg .btns span{min-width:92px;text-align:center;padding:5px 14px;border:1px solid #adadad;border-radius:4px;background:#e1e1e1;font-size:13px}
+  /* コピーして貼り付けるコマンド（コピーボタン付き） */
+  .cmdbox{position:relative;margin:8px 0}
+  .cmdbox pre{margin:0;padding-right:96px;white-space:pre-wrap;word-break:break-all;user-select:all}
+  .copybtn{position:absolute;top:8px;right:8px;border:none;border-radius:8px;background:var(--blue);color:#fff;font:inherit;font-size:13px;font-weight:700;padding:4px 12px;cursor:pointer}
+  .copybtn:hover{background:var(--blue-d)}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>🖨️ 自動印刷アプリ ガイド</h1>
+    <p>質札（PRINT_A4 / PRINT_A5）や管理票を自動で印刷するアプリの、設定・使い方・インストール手順</p>
+  </div>
+</header>
+
+<nav class="tabs">
+  <div class="wrap">
+    <button class="tab active" data-target="staff">👤 スタッフ向け（使い方）</button>
+    <button class="tab" data-target="install">🛠️ インストール（IT担当向け）</button>
+  </div>
+</nav>
+
+<main>
+
+<!-- ============ STAFF ============ -->
+<section class="page active" id="staff">
+
+  <div class="lead">
+    <span class="pill">はじめに</span>
+    このアプリは、質札（<code>PRINT_A4</code> / <code>PRINT_A5</code>）や管理票を<strong>自動で印刷</strong>します。パソコンの電源を入れると自動で動き出し、裏でずっと待機しています。普段どおり成約すれば、印刷は自動で行われます。
+  </div>
+
+  <h2>1. アプリが動いているか確認する</h2>
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:14px;background:#f1f5f9;border-radius:10px;padding:12px 16px;margin:0 0 12px">
+      <img src="app_icon.png" alt="アプリのアイコン" width="56" height="56" style="border-radius:12px;flex:none">
+      <div>このマークが<strong>このアプリのアイコン</strong>です。タスクトレイ（画面右下）でこのアイコンを探してください。</div>
+    </div>
+    <p>画面右下の時計の近く（タスクトレイ）に、このアイコンが出ていれば<strong>動いています</strong>。</p>
+    <p>隠れている場合は、時計の左にある <strong>「∧」（上向きの矢印）</strong> をクリックすると、隠れているアイコンが表示されます。</p>
+    <div class="shot"><img src="images/tray_icon.png" alt="トレイアイコン"><div class="ph">📷 ここにスクリーンショット（<code>images/tray_icon.png</code>）</div><div class="cap">タスクトレイのアイコン</div></div>
+    <p><strong>アイコンが見当たらないとき</strong> → 「6. 困ったとき」の「アプリが起動していない」を見てください。</p>
+  </div>
+
+  <h2>2. プリンターの設定（いちばん大事）</h2>
+  <div class="card">
+    <p>印刷先のプリンターは、<strong>トレイアイコンを右クリック</strong>するだけで選べます。<strong>ファイルを編集する必要はありません。</strong></p>
+    <h3>手順</h3>
+    <ol>
+      <li>タスクトレイのアプリのアイコンを <strong>右クリック</strong></li>
+      <li>メニューが開きます（下の図のような内容）</li>
+    </ol>
+<pre class="ascii">┌─────────────────────────────┐
+│  A4/A5 Printer            ▶ │   ← 質札（A4・A5）用のプリンター
+│  管理票 Printer           ▶ │   ← 管理票（ラベル）用のプリンター
+│  ─────────────────────────  │
+│  Quit                       │   ← アプリを終了
+└─────────────────────────────┘</pre>
+    <ol start="3">
+      <li>設定したい方にマウスを合わせると、プリンターの一覧（▶の先）が開きます</li>
+      <li>使いたいプリンターを<strong>クリック</strong>すると、チェック（●）が付いて設定完了です</li>
+    </ol>
+
+    <h3>A4/A5 Printer（質札用）</h3>
+    <p>質札（ファイル名に <code>PRINT_A4</code> <code>PRINT_A5</code> が付くもの）を印刷するプリンターです。</p>
+<pre class="ascii">A4/A5 Printer ▶
+   ┌──────────────────────────────────────┐
+   │ ● Default Printer（通常使うプリンター）│
+   │   A4白黒印刷 Brother HL-L5210DW series │ ← これを選ぶ例
+   │   カラーコピー Brother MFC-L8610CDW    │
+   │   Microsoft Print to PDF               │
+   └──────────────────────────────────────┘</pre>
+    <ul>
+      <li>普段使うプリンターでよければ <strong>「Default Printer」</strong> のままでOK</li>
+      <li>特定のプリンターに出したいときは、その<strong>プリンター名をクリック</strong></li>
+    </ul>
+
+    <h3>管理票 Printer（管理票・ラベル用）</h3>
+    <p>管理票（ファイル名が <code>管理票…</code> のもの）を印刷する<strong>ラベルプリンター</strong>です。</p>
+<pre class="ascii">管理票 Printer ▶
+   ┌──────────────────────────────────────┐
+   │   (未設定)                             │
+   │ ● 管理表最新                           │ ← ラベルプリンターを選ぶ
+   │   A4白黒印刷 Brother HL-L5210DW series │
+   └──────────────────────────────────────┘</pre>
+    <ul>
+      <li>ここで<strong>ラベルプリンターを選ぶ</strong>（例：QL-820NWB のラベルプリンター）</li>
+      <li>「(未設定)」のままだと管理票は印刷されないので、必ず選んでください</li>
+    </ul>
+    <div class="callout warn">
+      <div class="ttl">⚠️ 大事なポイント</div>
+      一覧に出るプリンター名は<strong>ぴったり一致</strong>している必要があります。一覧から<strong>クリックで選ぶ</strong>のがいちばん確実です（手で打つと間違いのもと）。
+    </div>
+  </div>
+
+  <h2>3. 印刷のテスト</h2>
+  <div class="card">
+    <p>設定できたら、実際に印刷されるか試してみましょう。</p>
+    <ol>
+      <li>普段どおり質札を1件 成約する（または、ファイル名に <code>PRINT_A4</code> を含むPDFをダウンロードフォルダに置く）</li>
+      <li>自動でプリンターから印刷されればOKです 🎉</li>
+    </ol>
+    <p>うまくいかないときは「6. 困ったとき」を見てください。</p>
+  </div>
+
+  <h2>4. 毎日の使い方</h2>
+  <div class="card">
+    <p>基本は <strong>何もしなくてOK</strong>。パソコンを起動すれば自動で待機し、成約すれば自動で印刷されます。</p>
+    <table>
+      <tr><th>やりたいこと</th><th>操作</th></tr>
+      <tr><td>普通に使う</td><td>何もしなくてOK（自動で動いています）</td></tr>
+      <tr><td>アプリを止めたい</td><td>トレイアイコンを右クリック →「Quit」</td></tr>
+      <tr><td>もう一度動かしたい</td><td>デスクトップ／フォルダの <code>start_hidden.vbs</code> をダブルクリック</td></tr>
+      <tr><td>パソコンを再起動した</td><td>自動でまた動き出します（操作不要）</td></tr>
+    </table>
+  </div>
+
+  <h2>5. 印刷されるファイルのルール</h2>
+  <div class="card">
+    <p>ダウンロードフォルダに入ったファイルのうち、<strong>名前で印刷対象が決まります</strong>。</p>
+    <table>
+      <tr><th>ファイル名</th><th>印刷先</th></tr>
+      <tr><td><code>〇〇PRINT_A4〇〇.pdf</code> / <code>.html</code></td><td>A4/A5 Printer（A4サイズ）</td></tr>
+      <tr><td><code>〇〇PRINT_A5〇〇.pdf</code> / <code>.html</code></td><td>A4/A5 Printer（A5サイズ）</td></tr>
+      <tr><td><code>管理票〇〇.html</code> / <code>.pdf</code></td><td>管理票 Printer（ラベル）</td></tr>
+    </table>
+    <p>上記以外の名前のファイルは<strong>印刷されません</strong>（無視されます）。</p>
+  </div>
+
+  <h2>6. 困ったとき（かんたん対処）</h2>
+  <div class="card">
+    <h3>印刷されない</h3>
+    <ol>
+      <li><strong>トレイにアイコンがあるか</strong>確認（「1.」を参照）。なければ下の「アプリが起動していない」へ</li>
+      <li><strong>ファイル名</strong>に <code>PRINT_A4</code> / <code>PRINT_A5</code> / <code>管理票</code> が入っているか確認</li>
+      <li><strong>プリンターが選ばれているか</strong>確認（「2.」を参照。特に管理票は「(未設定)」になっていないか）</li>
+      <li><strong>プリンターの電源・接続・用紙</strong>を確認</li>
+      <li>それでも直らないときは、アプリを<strong>最新版に更新</strong>してみてください（「8.」を参照）</li>
+    </ol>
+
+    <h3>印刷が遅い／たまる</h3>
+    <ul>
+      <li>プリンターが<strong>オフライン・用紙切れ・エラー</strong>になっていないか確認してください</li>
+      <li>Windowsの「プリンターとスキャナー」で、そのプリンターが「オフライン」になっていないか確認</li>
+    </ul>
+
+    <h3>アプリが起動していない（トレイにアイコンがない）</h3>
+    <ol>
+      <li>インストールフォルダを開く<br><span style="color:var(--muted);font-size:13px">場所：<code>C:\Program Files (x86)\pawn-auto-printer\dev\pawn-auto-printer</code></span></li>
+      <li><strong><code>start_hidden.vbs</code></strong> をダブルクリック</li>
+      <li>トレイにアイコンが出れば復活です</li>
+      <li>それでも出ない場合は、IT担当に連絡してください</li>
+    </ol>
+
+    <h3>パソコン起動時に自動で立ち上げる（最初に一度だけ）</h3>
+    <p>毎回手動で起動しなくてよいように、PCを起動したら自動でアプリが立ち上がるよう設定します。<strong>一度やれば、以降はずっと自動で起動</strong>します。</p>
+    <ol>
+      <li>エクスプローラーのアドレスバーに、次を貼り付けて Enter（「スタートアップ」フォルダが開きます）：
+<pre><code>%AppData%\Microsoft\Windows\Start Menu\Programs\Startup</code></pre></li>
+      <li>インストールフォルダ（上記の場所）の <code>start_hidden.vbs</code> を右クリック →「<strong>コピー</strong>」</li>
+      <li>開いた「Startup」フォルダの中で右クリック →「<strong>ショートカットの貼り付け</strong>」</li>
+    </ol>
+    <div class="callout warn">必ず「<strong>ショートカットの貼り付け</strong>」を選んでください（ただの「貼り付け」だと、ファイル本体が移動してしまいます）。設定できたら一度PCを再起動して、トレイにアイコンが出れば成功です。</div>
+
+    <h3>パソコン起動時にエラーのメッセージが出る（フォルダを移動したあと）</h3>
+    <p>「<strong>スクリプト ファイル … start_hidden.vbs が見つかりません</strong>」というエラーが、PC起動時に出ることがあります。</p>
+    <div class="errdlg" aria-label="起動時エラーの再現">
+      <div class="bar"><span>Windows Script Host</span><span class="x">×</span></div>
+      <div class="body">
+        <div class="eico">✕</div>
+        <div class="msg">スクリプト ファイル<br>"C:\Users\…\pawn-auto-printer\dev\pawn-auto-printer\start_hidden.vbs" が見つかりません。</div>
+      </div>
+      <div class="btns"><span>OK</span></div>
+    </div>
+    <div class="cap" style="text-align:center;color:var(--muted);font-size:12px">↑ 起動時に出るエラー画面のイメージ</div>
+    <p><strong>原因：</strong> アプリのフォルダを<strong>移動した</strong>のに、自動起動の登録が<strong>古い場所を指したまま</strong>になっているためです（アプリ自体は別の登録で起動していることが多いです）。</p>
+    <p><strong>直し方（古い登録を消す）：</strong></p>
+    <ol>
+      <li>エクスプローラーのアドレスバーに貼り付けて Enter：
+<pre><code>%AppData%\Microsoft\Windows\Start Menu\Programs\Startup</code></pre></li>
+      <li>中のショートカットを右クリック →「プロパティ」で「<strong>リンク先</strong>」を確認</li>
+      <li><strong>古い場所</strong>を指しているショートカットを<strong>削除</strong>（今のフォルダを指すものは残す）</li>
+      <li>それでも出る場合は、スタートメニューで「<strong>タスク スケジューラ</strong>」を開き、「タスク スケジューラ ライブラリ」の中の <code>PDFAutoPrinter</code> を右クリック →「削除」</li>
+    </ol>
+    <div class="callout info">この作業が不安な場合は、IT担当にこのページを見せて対応してもらってください。</div>
+  </div>
+
+  <h2>7. ふだんは触らない設定（上級者・IT担当向け）</h2>
+  <div class="card">
+    <p>通常のプリンター設定は「2.」のトレイメニューだけで完結します。以下の <code>config.json</code>（設定ファイル）は<strong>普段は編集しないでください</strong>。編集を間違えるとアプリが動かなくなることがあります。</p>
+    <p>必要な場合のみ、<code>config.json</code> をメモ帳で開いて編集します（<strong>保存は UTF-8 のまま</strong>）。</p>
+    <table>
+      <tr><th>項目</th><th>意味</th><th>備考</th></tr>
+      <tr><td><code>target_printer</code></td><td>質札用プリンター</td><td>通常はトレイメニューで設定（手編集不要）</td></tr>
+      <tr><td><code>kanrihyo_printer</code></td><td>管理票用プリンター</td><td>通常はトレイメニューで設定（手編集不要）</td></tr>
+      <tr><td><code>kanrihyo_paper_size</code></td><td>管理票の用紙サイズ</td><td>例：<code>62mm</code>。空にするとプリンター既定</td></tr>
+      <tr><td><code>watch_directory</code></td><td>監視するフォルダ</td><td>空ならダウンロードフォルダ</td></tr>
+    </table>
+    <div class="callout info">設定を変えたら、アプリを再起動（トレイ →「Quit」→ <code>start_hidden.vbs</code>）すると反映されます。</div>
+  </div>
+
+  <h2 id="update">8. アプリの更新（IT担当向け）</h2>
+  <div class="card">
+    <p><strong>アプリは起動するたびに、自動で最新版に更新されます。</strong>ふだんは何もする必要はありません（パソコンを起動すれば最新版になります）。</p>
+
+    <h3>今すぐ更新したいとき／自動更新が入る前の古いアプリのとき</h3>
+    <p>どのパソコンでも、同じコマンドを1行貼り付けるだけで更新できます。アプリの保存場所は自動で探すので、フォルダを開く必要はありません。</p>
+    <ol>
+      <li>スタートボタンを右クリック →「<strong>Windows PowerShell</strong>」（Windows 11 では「<strong>ターミナル</strong>」）を開く（<strong>「管理者として実行」は選ばずに</strong>、普通に開いてください）</li>
+      <li>下のコマンドを「コピー」ボタンでコピーし、PowerShell に貼り付けて（右クリックまたは Ctrl+V）Enter：
+        <div class="cmdbox"><pre id="update-cmd">[Net.ServicePointManager]::SecurityProtocol='Tls12'; irm https://raw.githubusercontent.com/assist-grp/pawn-auto-printer/main/update.ps1 | iex</pre><button type="button" class="copybtn" onclick="copyCmd('update-cmd', this)">コピー</button></div>
+      </li>
+      <li>最後に <code>VERSION: …</code> の行と「<strong>Done.</strong>」が表示されれば完了です。アプリは自動で再起動されるので、<strong>アプリやパソコンの再起動は不要</strong>です。あわせて、下の「自動更新できるかの確認」の表示も見てください</li>
+    </ol>
+    <div class="callout info">
+      <div class="ttl">実行するときの注意</div>
+      <ul>
+        <li>アプリを動かしている Windows ユーザーでサインインして実行してください（ユーザーごとに必要です）</li>
+        <li>印刷していないときに実行してください（再起動の瞬間に届いたファイルは印刷されないことがあります）</li>
+        <li>プリンター設定（<code>config.json</code>）は変更されません</li>
+      </ul>
+    </div>
+    <div class="callout warn"><code>[ERROR]</code> や、下の表にない <code>[WARN]</code> が表示されたときは、画面の文字をそのままコピーして IT担当に送ってください。</div>
+
+    <h3>自動更新できるかの確認（更新コマンドの結果を見る）</h3>
+    <p>アプリは管理者権限なしで動くため、アプリのフォルダに書き込めないと自動更新が失敗し、古い版のまま動き続けます（<code>C:\Program Files (x86)</code> の下は、ふつうは書き込めません）。上の更新コマンドはこの確認も一緒に行うので、表示された結果を見てください。</p>
+    <table>
+      <tr><th>表示</th><th>意味・やること</th></tr>
+      <tr><td><code>[OK] auto-update can write to this folder</code></td><td>問題ありません。今後も自動で更新されます</td></tr>
+      <tr><td><code>[WARN] auto-update CANNOT write to this folder</code></td><td>このフォルダでは自動更新ができません。下の「アプリのフォルダを移す」の手順で移してください</td></tr>
+      <tr><td><code>[NOTE] PowerShell is running as administrator</code></td><td>管理者として開いたため確認できていません。PowerShell を<strong>普通に</strong>開き直して、もう一度実行してください</td></tr>
+    </table>
+
+    <h3>アプリのフォルダを移す（自動更新ができないと表示されたとき）</h3>
+    <p>おすすめの場所は <code>C:\pawn-auto-printer</code> です（管理者権限なしで書き込めて、どのパソコンでも同じ場所にできます）。</p>
+    <ol>
+      <li>タスクトレイのアイコンを右クリック →「Quit」で、アプリを止める</li>
+      <li>エクスプローラーで C ドライブに <code>pawn-auto-printer</code> フォルダを作り、今のアプリのフォルダの<strong>中身を全部コピー</strong>する（<code>config.json</code> も一緒にコピーすれば、プリンター設定はそのまま使えます）</li>
+      <li>新しいフォルダの <code>register_autostart.bat</code> を右クリック →「<strong>管理者として実行</strong>」（自動起動の登録し直し。アプリも起動します）</li>
+      <li>スタートアップに<strong>古い場所</strong>を指すショートカットが残っていれば削除する（アドレスバーに <code>shell:startup</code> と入力して Enter で開けます。手順は「6.」の「パソコン起動時にエラーのメッセージが出る」と同じ）。デスクトップのショートカットも、新しいフォルダの <code>create_desktop_shortcut.bat</code> で作り直す</li>
+      <li>上の更新コマンドをもう一度実行し、<code>[OK] auto-update can write to this folder</code> と出れば完了。古いフォルダは削除してかまいません</li>
+    </ol>
+  </div>
+
+  <h2>こまったら</h2>
+  <div class="card">
+    <ul>
+      <li>動作の記録は <code>printer_log.txt</code>（インストールフォルダ内）に残っています。トラブル時はこのファイルを IT担当に見せると原因が分かりやすくなります。</li>
+      <li>インストールや詳しい不具合対応は、上の「🛠️ インストール（IT担当向け）」タブを参照してください。</li>
+    </ul>
+  </div>
+
+</section>
+
+<!-- ============ INSTALL ============ -->
+<section class="page" id="install">
+
+  <div class="lead">
+    <span class="pill">このガイドについて</span>
+    パソコンが苦手な方でも進められるよう、順番に説明します。上から1つずつ進めてください。インストールが終わったあとの<strong>プリンター設定や使い方</strong>は、上の「👤 スタッフ向け」タブを見てください。
+  </div>
+
+  <h2>はじめに：用意するもの・かかる時間</h2>
+  <div class="card">
+    <ul>
+      <li><strong>インターネット接続</strong>（必要なソフトをダウンロードします）</li>
+      <li><strong>管理者の権限</strong>（インストールには管理者として実行が必要です）</li>
+      <li>時間の目安：<strong>10〜20分</strong></li>
+    </ul>
+    <h3>このアプリでやること（全体の流れ）</h3>
+    <ol>
+      <li>アプリに必要なソフト（Python・SumatraPDF・部品）を入れる</li>
+      <li>アプリを起動して、パソコン起動時に自動で立ち上がるようにする</li>
+      <li>プリンターを選ぶ（→ スタッフ向けタブ）</li>
+    </ol>
+  </div>
+
+  <h2>ステップ 1：必要なソフトを入れる</h2>
+  <div class="card">
+    <p>2つのやり方があります。<strong>まずは「方法A」を試し、止まったり失敗したら「方法B」</strong>に進んでください。</p>
+
+    <h3>方法A：自動インストール（ワンクリック）</h3>
+    <ol>
+      <li><code>install_all.bat</code> を<strong>右クリック</strong> →「<strong>管理者として実行</strong>」を選ぶ<br><span style="color:var(--muted);font-size:13px">※ ダブルクリックではなく「右クリック →管理者として実行」が確実です</span></li>
+      <li>「このアプリがデバイスに変更を加えることを許可しますか？」と出たら「<strong>はい</strong>」</li>
+      <li>黒い画面でインストールが進みます。完了まで<strong>数分</strong>待ちます</li>
+    </ol>
+    <div class="callout warn">
+      <div class="ttl">うまくいかないとき（よくあります）</div>
+      画面が「99%」や途中で<strong>止まったまま動かない</strong>、エラーが出る場合は、無理せず<strong>方法B</strong>に進んでください。原因のほとんどは Windows の <code>winget</code> という仕組みの不調です。
+    </div>
+
+    <h3>方法B：手動インストール（確実）</h3>
+    <p><code>winget</code> を使わないので、<strong>いちばん確実</strong>です。順番にやってください。</p>
+    <p><strong>① Python を入れる</strong></p>
+    <ol>
+      <li>ブラウザで <a href="https://www.python.org/downloads/">https://www.python.org/downloads/</a> を開く</li>
+      <li>「Download Python」をクリックしてダウンロード</li>
+      <li>ダウンロードしたファイルを実行</li>
+      <li>最初の画面の<strong>いちばん下の「Add python.exe to PATH」に必ずチェック</strong>を入れる ← これが最重要</li>
+      <li>「Install Now」を押して、完了まで待つ</li>
+    </ol>
+    <p><strong>② SumatraPDF を入れる</strong>（PDFの印刷に使います）</p>
+    <ol>
+      <li><a href="https://www.sumatrapdfreader.org/download-free-pdf-viewer">https://www.sumatrapdfreader.org/download-free-pdf-viewer</a> を開く</li>
+      <li>「<strong>64-bit Installer</strong>」をダウンロードして実行</li>
+    </ol>
+    <p><strong>③ 部品（ライブラリ）を入れる</strong></p>
+    <ol>
+      <li>スタートメニューで「<strong>PowerShell</strong>」を開く（黒い画面が出ます）</li>
+      <li>次の1行をコピーして貼り付け、Enter（<strong>フォルダ移動は不要</strong>）：
+<pre><code>py -m pip install pywin32 pystray watchdog Pillow</code></pre></li>
+      <li>「Successfully installed」または「already satisfied」と出れば成功です</li>
+    </ol>
+  </div>
+
+  <h2>ステップ 2：アプリを起動する</h2>
+  <div class="card">
+    <p><code>start_hidden.vbs</code> を<strong>ダブルクリック</strong>します。画面右下のタスクトレイ（時計の近く）に<strong>アプリのアイコンが出れば成功</strong>です（黒い画面は出ません）。</p>
+    <p>アイコンが出ない／エラーが出る場合は、<code>debug_runner.bat</code> をダブルクリックすると、原因のメッセージが表示されます（下のトラブルシューティング参照）。</p>
+  </div>
+
+  <h2>ステップ 3：パソコン起動時に自動で立ち上げる</h2>
+  <div class="card">
+    <p>いちばん確実なのは <code>register_autostart.bat</code> を<strong>右クリック →「管理者として実行」</strong>する方法です。</p>
+    <p><code>.bat</code> が動かないPCでは、<strong>スタートアップフォルダにショートカットを入れる</strong>方法を使います：</p>
+    <ol>
+      <li>エクスプローラーのアドレスバーに貼り付けて Enter：
+<pre><code>%AppData%\Microsoft\Windows\Start Menu\Programs\Startup</code></pre></li>
+      <li>インストールフォルダの <code>start_hidden.vbs</code> を右クリック →「コピー」</li>
+      <li>開いた「Startup」フォルダ内で右クリック →「<strong>ショートカットの貼り付け</strong>」</li>
+    </ol>
+  </div>
+
+  <h2>ステップ 4：プリンターを選ぶ（使い始める設定）</h2>
+  <div class="card">
+    <p>ここまでできたら、上の「👤 スタッフ向け」タブの「2. プリンターの設定」を見て、印刷先のプリンターを選んでください。トレイアイコンを右クリックするだけで設定できます。</p>
+    <div class="callout info">アプリは起動するたびに自動で最新版に更新されます。ただし、アプリのフォルダに管理者権限なしで書き込めないと自動更新できません（<code>C:\Program Files (x86)</code> の下は、ふつうは書き込めません）。おすすめの置き場所は <code>C:\pawn-auto-printer</code> です。インストール後に一度、更新コマンドで確認してください（「👤 スタッフ向け」タブの「8. アプリの更新」）。</div>
+  </div>
+
+  <h2>トラブルシューティング</h2>
+
+  <div class="card">
+    <h3>winget で Python が入らない / 「パッケージが見つかりません」</h3>
+    <p><code>install_all.bat</code> 実行中に止まる場合、winget が古いか Python を取得できていません。</p>
+    <p><strong>解決：</strong> 上の「方法B」で Python を python.org から直接インストールしてください。<code>install_all.bat</code> は最初に PATH 上の Python を探すため、手動で入れれば winget の手順は自動でスキップされます。</p>
+  </div>
+
+  <div class="card">
+    <h3>install_all.bat が途中で止まる / winget が固まる</h3>
+    <p>「99%のまま動かない」「Step の手前で固まる」など。<strong>まず2〜3分待つ</strong> → 動かなければ「×」で閉じて、手動で仕上げます。</p>
+    <ol>
+      <li>ライブラリを入れる（PowerShell、フォルダ移動不要）：
+<pre><code>py -m pip install pywin32 pystray watchdog Pillow</code></pre></li>
+      <li>Python / SumatraPDF が未インストールなら「方法B」で手動インストール</li>
+      <li><code>start_hidden.vbs</code> で起動 → 自動起動を登録</li>
+    </ol>
+    <div class="callout info">winget は環境によって不安定です。最初から「方法B（手動）」で進めると、トラブルを完全に回避できます。</div>
+  </div>
+
+  <div class="card">
+    <h3>ファイル（auto_printer.py など）が消える / 起動しない</h3>
+    <p>重要ファイルが<strong>ウイルス対策ソフトに削除・隔離される</strong>ことがあります。</p>
+    <p><strong>症状：</strong> <code>install.ps1 は存在しません</code>で止まる／「python process keeps crashing」／<code>No such file or directory</code></p>
+    <p><strong>解決：</strong></p>
+    <ol>
+      <li><strong>フォルダを除外設定に追加（先に実施）</strong>：Windows セキュリティ →「ウイルスと脅威の防止」→「設定の管理」→「除外」→「除外の追加」→「フォルダー」でインストールフォルダを指定</li>
+      <li><strong>消えたファイルを復元</strong>：「保護の履歴」から「許可／復元」、または正常なPC・元データからコピー</li>
+    </ol>
+    <div class="callout warn">除外設定を<strong>先に</strong>行わないと、復元してもまた削除されます。</div>
+  </div>
+
+  <div class="card">
+    <h3>自動起動できない / 起動時にエラーが出る</h3>
+    <p>フォルダを移動したのに古いショートカットが残っているのが原因です。「👤 スタッフ向け」タブの「6. 困ったとき → パソコン起動時にエラー」を参照してください。</p>
+  </div>
+
+  <div class="card">
+    <h3>デスクトップアイコンが作れない</h3>
+    <p>デスクトップが OneDrive に移動されている環境では <code>create_desktop_shortcut.bat</code> が失敗することがあります（修正版は対応済み）。手動で作るには、<code>start_hidden.vbs</code> を右クリック →「送る」→「デスクトップ（ショートカットを作成）」。</p>
+  </div>
+
+  <h2>システム要件</h2>
+  <div class="card">
+    <ul>
+      <li>Windows 10 / 11</li>
+      <li>Python 3.9 以上</li>
+      <li>SumatraPDF（PDF 印刷用）</li>
+      <li>Edge または Chrome（HTML 変換用）</li>
+    </ul>
+  </div>
+
+</section>
+
+</main>
+
+<footer>
+  このページは <code>guide.html</code> です。スクリーンショットを入れるには、同じ場所に <code>images</code> フォルダを作り、<strong>Windowsキー + Shift + S</strong> で撮った画像を、枠に書かれたファイル名（例：<code>tray_icon.png</code>）で保存してください。<br>
+  元の詳細ドキュメント：INSTALL_JP.md / STAFF_GUIDE_JP.md
+</footer>
+
+<script>
+  // タブ切り替え
+  document.querySelectorAll('.tab').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.tab').forEach(function(b){b.classList.remove('active')});
+      document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active')});
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.target).classList.add('active');
+      window.scrollTo({top:0});
+    });
+  });
+  // 画像が無い枠はプレースホルダ表示にする
+  document.querySelectorAll('.shot img').forEach(function(img){
+    img.addEventListener('error', function(){ img.parentNode.classList.add('noimg'); });
+    if(img.complete && img.naturalWidth===0){ img.parentNode.classList.add('noimg'); }
+  });
+  // コマンドのコピーボタン（file:// で開いた場合も動くよう、選択→コピーの予備手段つき）
+  function copyCmd(id, btn){
+    var el = document.getElementById(id);
+    var text = el.innerText.trim();
+    function done(){ btn.textContent = 'コピーしました'; setTimeout(function(){ btn.textContent = 'コピー'; }, 2000); }
+    function fallback(){
+      var range = document.createRange(); range.selectNodeContents(el);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+      try { if (document.execCommand('copy')) { done(); } } catch(e) { /* 選択だけされた状態で残す */ }
+    }
+    if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(done, fallback); }
+    else { fallback(); }
+  }
+</script>
+</body>
+</html>
