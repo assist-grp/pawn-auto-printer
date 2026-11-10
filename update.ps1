@@ -135,6 +135,12 @@
         }
     }
     $allWritable = $true
+    $ic = [StringComparison]::OrdinalIgnoreCase
+    $moveCmd = "[Net.ServicePointManager]::SecurityProtocol='Tls12'; irm https://raw.githubusercontent.com/assist-grp/pawn-auto-printer/main/move_to_documents.ps1 | iex"
+    $downloads = $null
+    try { $downloads = (New-Object -ComObject Shell.Application).NameSpace('shell:Downloads').Self.Path } catch {}
+    if (-not $downloads) { $downloads = Join-Path $env:USERPROFILE 'Downloads' }
+    $downloads = $downloads.TrimEnd('\')
 
     Write-Host ''
     Write-Host "Latest version on GitHub: $newVersion (sha256 $($newHash.Substring(0, 8).ToLower()))"
@@ -157,8 +163,19 @@
             } else {
                 $allWritable = $false
                 Write-Host '  [WARN] auto-update CANNOT write to this folder (admin rights needed).' -ForegroundColor Yellow
-                Write-Host '         The app will stay on the old version. Move the app into the Documents folder (see the manual).' -ForegroundColor Yellow
+                if ($f.Path -match '^[A-Za-z]:\\Program Files') {
+                    Write-Host '         The app stays in Program Files, so it will not update itself.' -ForegroundColor Yellow
+                    Write-Host '         To update it, open PowerShell with "Run as administrator" and run this update command.' -ForegroundColor Yellow
+                } else {
+                    Write-Host '         The app will stay on the old version. Move it into the Documents folder with this command:' -ForegroundColor Yellow
+                    Write-Host "         $moveCmd"
+                }
             }
+        }
+        if ($f.Path.StartsWith($downloads + '\', $ic)) {
+            Write-Host '  [NOTE] The app is inside the Downloads folder. It may be deleted when Downloads is cleaned up.' -ForegroundColor Yellow
+            Write-Host '         Move it into the Documents folder with this command:' -ForegroundColor Yellow
+            Write-Host "         $moveCmd"
         }
     }
     Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
@@ -209,6 +226,14 @@
             Write-Host 'From now on it updates itself automatically every time it starts.'
         } else {
             Write-Host 'Automatic updates will NOT work in this folder (see [WARN] above).' -ForegroundColor Yellow
+        }
+        # Downloads / move hints were printed above; repeat them at the end so they are not missed
+        foreach ($f in $found.Values) {
+            if ($f.Path.StartsWith($downloads + '\', $ic)) {
+                Write-Host ''
+                Write-Host 'Recommended: move the app out of the Downloads folder (see [NOTE] above).' -ForegroundColor Yellow
+                break
+            }
         }
     } else {
         Write-Host '[WARN] The app did not write its VERSION line within 30 seconds.' -ForegroundColor Yellow

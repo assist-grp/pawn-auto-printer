@@ -152,9 +152,19 @@ PowerShell を開き、**どのフォルダからでも**次の1行を貼り付�
 [update.ps1](update.ps1) がアプリのフォルダを自動で探し（動いているアプリ → タスクスケジューラ「PDFAutoPrinter」→ スタートアップ／デスクトップのショートカット → 見つからなければディスクを検索）、`auto_printer.py` を最新版に差し替え、そのフォルダに管理者権限なしで書き込めるか（＝自動更新できるか）を確認してから、アプリを再起動します。最後に `VERSION: …` の行が表示されれば完了です。
 
 - 管理者ではない普通の PowerShell で実行してください（管理者だと書き込み確認ができません）
-- `[WARN] auto-update CANNOT write to this folder` と出たら、そのフォルダでは自動更新できません。「ドキュメント」フォルダの中へ移してください（手順は [STAFF_GUIDE_JP.md](STAFF_GUIDE_JP.md) の「8.」）
+- `[WARN] auto-update CANNOT write to this folder` と出たら、そのフォルダでは自動更新できません。下の移動コマンドで「ドキュメント」フォルダの中へ移してください（Program Files のPCはそのまま運用し、更新したいときは「管理者として実行」の PowerShell で更新コマンドを実行）
 - アプリを動かしている Windows ユーザーでサインインして実行してください（別ユーザーのアプリは見つけられません）
 - 再起動の瞬間にダウンロード中のファイルは印刷されないことがあるので、印刷していないときに実行してください
+
+### アプリを「ドキュメント」フォルダへ移す
+
+ダウンロードフォルダなどに置いてしまったアプリは、次の1行で「ドキュメント」フォルダの `pawn-auto-printer` へ移せます（普通の PowerShell で、どのフォルダからでも実行可）：
+
+```powershell
+[Net.ServicePointManager]::SecurityProtocol='Tls12'; irm https://raw.githubusercontent.com/assist-grp/pawn-auto-printer/main/move_to_documents.ps1 | iex
+```
+
+[move_to_documents.ps1](move_to_documents.ps1) はアプリを止めてフォルダごと（`config.json` も）コピーし、スタートアップ／デスクトップのショートカット・タスク「PDFAutoPrinter」・Windows Defender の除外設定を新しい場所に合わせます（後の2つのために管理者の確認が1回出ます）。新しい場所で起動を確認できたら、古いフォルダを削除します。アプリが Program Files にある場合や、すでに「ドキュメント」にある場合は何もしません。
 
 ---
 

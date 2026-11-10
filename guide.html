@@ -308,12 +308,26 @@
     <table>
       <tr><th>表示</th><th>意味・やること</th></tr>
       <tr><td><code>[OK] auto-update can write to this folder</code></td><td>問題ありません。今後も自動で更新されます</td></tr>
-      <tr><td><code>[WARN] auto-update CANNOT write to this folder</code></td><td>このフォルダでは自動更新ができません。下の「アプリのフォルダを移す」の手順で移してください</td></tr>
+      <tr><td><code>[WARN] auto-update CANNOT write to this folder</code></td><td>このフォルダでは自動更新ができません。下の「アプリのフォルダを移す」の手順で移してください<br><span style="color:var(--muted);font-size:13px">※ Program Files に置いているパソコンは、移さずにそのまま使います。その場合は自動更新されないので、更新したいときは PowerShell を「管理者として実行」で開いて更新コマンドを実行してください</span></td></tr>
+      <tr><td><code>[NOTE] The app is inside the Downloads folder</code></td><td>アプリがダウンロードフォルダの中にあります。整理したときに消してしまわないよう、下の「アプリのフォルダを移す」の手順で移してください</td></tr>
       <tr><td><code>[NOTE] PowerShell is running as administrator</code></td><td>管理者として開いたため確認できていません。PowerShell を<strong>普通に</strong>開き直して、もう一度実行してください</td></tr>
     </table>
 
-    <h3>アプリのフォルダを移す（自動更新ができないと表示されたとき）</h3>
-    <p>移す先は<strong>「ドキュメント」フォルダの中</strong>です（例：<code>C:\Users\（ユーザー名）\Documents\pawn-auto-printer</code>）。ここなら管理者権限なしで書き込めます。</p>
+    <h3>アプリのフォルダを移す（ダウンロードフォルダにあるとき／自動更新ができないと表示されたとき）</h3>
+    <p>次のコマンドで、アプリを<strong>「ドキュメント」フォルダの中</strong>（例：<code>C:\Users\（ユーザー名）\Documents\pawn-auto-printer</code>）へ自動で移せます。プリンター設定・自動起動・ショートカットもそのまま引き継がれます。</p>
+    <ol>
+      <li>PowerShell を<strong>普通に</strong>開く（「管理者として実行」は選ばない）</li>
+      <li>下のコマンドをコピーして貼り付け、Enter：
+        <div class="cmdbox"><pre id="move-cmd">[Net.ServicePointManager]::SecurityProtocol='Tls12'; irm https://raw.githubusercontent.com/assist-grp/pawn-auto-printer/main/move_to_documents.ps1 | iex</pre><button type="button" class="copybtn" onclick="copyCmd('move-cmd', this)">コピー</button></div>
+      </li>
+      <li>途中で「<strong>このアプリがデバイスに変更を加えることを許可しますか？</strong>」と出たら「<strong>はい</strong>」（自動起動の登録とウイルス対策の除外設定を、新しい場所に合わせるためです）</li>
+      <li>最後に「<strong>Done.</strong>」と表示されれば完了。古いフォルダは自動で削除されます</li>
+    </ol>
+    <div class="callout info">
+      <div class="ttl">このコマンドがすること</div>
+      アプリを止めて、フォルダごと（プリンター設定の <code>config.json</code> も）「ドキュメント」へコピー → 自動起動・ショートカット・ウイルス対策の除外設定を新しい場所に合わせる → 新しい場所で起動できたことを確かめてから、古いフォルダを削除します。アプリが <strong>Program Files</strong> にある場合や、すでに「ドキュメント」にある場合は、何もしません。
+    </div>
+    <p><strong>手作業で移す場合（コマンドが使えないとき）：</strong></p>
     <ol>
       <li>タスクトレイのアイコンを右クリック →「Quit」で、アプリを止める</li>
       <li>エクスプローラーの左側の「<strong>ドキュメント</strong>」を開き、その中に <code>pawn-auto-printer</code> フォルダを作って、今のアプリのフォルダの<strong>中身を全部コピー</strong>する（<code>config.json</code> も一緒にコピーすれば、プリンター設定はそのまま使えます）</li>

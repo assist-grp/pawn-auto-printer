@@ -103,7 +103,7 @@
    ```
 3. 結果を確認：
    - `[OK] auto-update can write to this folder` と「**Done.**」が出れば完了です
-   - `[WARN] auto-update CANNOT write to this folder` と出た場合は、自動更新ができない場所に置かれています。[STAFF_GUIDE_JP.md](STAFF_GUIDE_JP.md) の「8. アプリの更新」の「アプリのフォルダを移す」の手順で、「ドキュメント」フォルダの中へ移してください
+   - `[WARN] auto-update CANNOT write to this folder` や `[NOTE] The app is inside the Downloads folder` と出た場合は、置き場所を直す必要があります。画面に表示される**移動コマンド**を同じように貼り付けて実行すると、「ドキュメント」フォルダの中へ自動で移せます（詳しくは [STAFF_GUIDE_JP.md](STAFF_GUIDE_JP.md) の「8. アプリの更新」の「アプリのフォルダを移す」）
 
 > このコマンドは、あとで「今すぐ最新版にしたい」ときにも使えます（詳しくは [STAFF_GUIDE_JP.md](STAFF_GUIDE_JP.md) の「8.」）。
 

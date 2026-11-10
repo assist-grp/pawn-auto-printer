@@ -947,12 +947,47 @@
                 <table style="width:100%; border-collapse:collapse; margin:16px 0;">
                     <tr style="border-bottom:1px solid var(--border-color);"><th style="text-align:left; padding:10px;">表示</th><th style="text-align:left; padding:10px;">意味・やること</th></tr>
                     <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:10px;"><span class="file-pill">[OK] auto-update can write to this folder</span></td><td style="padding:10px;">問題ありません。今後も自動で更新されます。</td></tr>
-                    <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:10px;"><span class="file-pill">[WARN] auto-update CANNOT write to this folder</span></td><td style="padding:10px;">このフォルダでは自動更新ができません。下の「アプリのフォルダを移す」の手順で、フォルダを移してください。</td></tr>
+                    <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:10px;"><span class="file-pill">[WARN] auto-update CANNOT write to this folder</span></td><td style="padding:10px;">このフォルダでは自動更新ができません。下の「アプリのフォルダを移す」の手順で、フォルダを移してください。<br><small>※ Program Files に置いているパソコンは、移さずにそのまま使います。その場合は自動更新されないので、更新したいときは PowerShell を「管理者として実行」で開いて更新コマンドを実行してください。</small></td></tr>
+                    <tr style="border-bottom:1px solid var(--border-color);"><td style="padding:10px;"><span class="file-pill">[NOTE] The app is inside the Downloads folder</span></td><td style="padding:10px;">アプリがダウンロードフォルダの中にあります。整理したときに消してしまわないよう、下の「アプリのフォルダを移す」の手順で移してください。</td></tr>
                     <tr><td style="padding:10px;"><span class="file-pill">[NOTE] PowerShell is running as administrator</span></td><td style="padding:10px;">管理者として開いたため確認できていません。PowerShell を<strong>普通に</strong>開き直して、もう一度実行してください。</td></tr>
                 </table>
 
-                <h3>アプリのフォルダを移す（自動更新ができないと表示されたとき）</h3>
-                <p>移す先は<strong>「ドキュメント」フォルダの中</strong>です（例：<span class="file-pill">C:\Users\（ユーザー名）\Documents\pawn-auto-printer</span>）。ここなら管理者権限なしで書き込めます。</p>
+                <h3>アプリのフォルダを移す（ダウンロードフォルダにあるとき／自動更新ができないと表示されたとき）</h3>
+                <p>次のコマンドで、アプリを<strong>「ドキュメント」フォルダの中</strong>（例：<span class="file-pill">C:\Users\（ユーザー名）\Documents\pawn-auto-printer</span>）へ自動で移せます。プリンター設定・自動起動・ショートカットもそのまま引き継がれます。</p>
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-number">1</div>
+                        <div>PowerShell を<strong>普通に</strong>開きます（「管理者として実行」は選ばないでください）。</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">2</div>
+                        <div>
+                            下のコマンドをコピーして貼り付け、Enter を押します。
+                            <div class="cmd-box">
+                                <pre id="move-cmd">[Net.ServicePointManager]::SecurityProtocol='Tls12'; irm https://raw.githubusercontent.com/assist-grp/pawn-auto-printer/main/move_to_documents.ps1 | iex</pre>
+                                <button type="button" class="cmd-copy" onclick="copyCmd('move-cmd', this)">コピー</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">3</div>
+                        <div>途中で「<strong>このアプリがデバイスに変更を加えることを許可しますか？</strong>」と出たら「<strong>はい</strong>」を押します（自動起動の登録とウイルス対策の除外設定を、新しい場所に合わせるためです）。</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">4</div>
+                        <div>最後に「<strong>Done.</strong>」と表示されれば完了です。古いフォルダは自動で削除されます。</div>
+                    </div>
+                </div>
+                <div class="callout callout-info">
+                    <div class="callout-icon">💡</div>
+                    <div class="callout-content">
+                        <strong>このコマンドがすること</strong><br>
+                        アプリを止めて、フォルダごと（プリンター設定の <span class="file-pill">config.json</span> も）「ドキュメント」へコピー → 自動起動・ショートカット・ウイルス対策の除外設定を新しい場所に合わせる → 新しい場所で起動できたことを確かめてから、古いフォルダを削除します。<br>
+                        アプリが <strong>Program Files</strong> にある場合や、すでに「ドキュメント」にある場合は、何もしません。
+                    </div>
+                </div>
+
+                <h3>手作業で移す場合（コマンドが使えないとき）</h3>
                 <div class="step-list">
                     <div class="step-item">
                         <div class="step-number">1</div>
