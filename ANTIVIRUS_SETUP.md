@@ -32,9 +32,11 @@ PDF Auto Printerがウイルス対策ソフトにブロックされる場合の�
 
 4. **フォルダ** を選択して、以下を追加：
    ```
-   C:\Users\<ユーザー名>\Downloads\pawn-auto-printer
+   C:\Users\<ユーザー名>\Documents\pawn-auto-printer
    ```
-   （インストール先フォルダのパス）
+   （アプリのフォルダのパス。以前から Program Files で使っているパソコンは `C:\Program Files (x86)\pawn-auto-printer\dev\pawn-auto-printer`）
+
+> **移動コマンドでアプリのフォルダを移した場合**：Windows Defender の除外設定は、自動で新しい場所に引き継がれます。Norton など**ほかのウイルス対策ソフトは引き継がれない**ので、下の手順で新しいフォルダを追加してください。
 
 ---
 
@@ -50,7 +52,7 @@ PDF Auto Printerがウイルス対策ソフトにブロックされる場合の�
 
 5. **フォルダ** を追加：
    ```
-   C:\Users\<ユーザー名>\Downloads\pawn-auto-printer
+   C:\Users\<ユーザー名>\Documents\pawn-auto-printer
    ```
 
 6. **適用** → **OK**
@@ -69,7 +71,7 @@ PDF Auto Printerがウイルス対策ソフトにブロックされる場合の�
 
 5. **ファイルの追加** → フォルダを選択：
    ```
-   C:\Users\<ユーザー名>\Downloads\pawn-auto-printer
+   C:\Users\<ユーザー名>\Documents\pawn-auto-printer
    ```
 
 ---
@@ -84,7 +86,7 @@ PDF Auto Printerがウイルス対策ソフトにブロックされる場合の�
 
 4. **参照** → フォルダを追加：
    ```
-   C:\Users\<ユーザー名>\Downloads\pawn-auto-printer
+   C:\Users\<ユーザー名>\Documents\pawn-auto-printer
    ```
 
 ---
@@ -99,7 +101,7 @@ PDF Auto Printerがウイルス対策ソフトにブロックされる場合の�
 
 4. **信頼するアプリケーションを追加** → フォルダを選択：
    ```
-   C:\Users\<ユーザー名>\Downloads\pawn-auto-printer
+   C:\Users\<ユーザー名>\Documents\pawn-auto-printer
    ```
 
 ---
@@ -123,7 +125,7 @@ PDF Auto Printerがウイルス対策ソフトにブロックされる場合の�
 
 2. コマンドプロンプト（管理者権限）で実行：
    ```cmd
-   cd C:\Users\<ユーザー名>\Downloads\pawn-auto-printer
+   cd C:\Users\<ユーザー名>\Documents\pawn-auto-printer
    python -m pip install watchdog pystray pillow pywin32
    ```
 
@@ -188,4 +190,4 @@ A: IT部門の許可を得てから使用してください。セキュリティ
 
 ---
 
-**最終更新**: 2026年1月22日
+**最終更新**: 2026年11月10日

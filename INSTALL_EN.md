@@ -110,7 +110,7 @@ and review console output
 ### Issue 5: Print to Different Printer
 **Solution:**
 1. **Tray icon** appears when app runs
-2. Right-click icon → "Select Printer"
+2. Right-click the icon → choose the printer under "A4/A5 Printer" (pawn tickets) or "管理票 Printer" (labels)
 
 ## Viewing Logs
 
