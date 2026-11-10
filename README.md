@@ -138,6 +138,19 @@
 - 差し替え前の版は `auto_printer.py.bak` に残ります（戻すときはこれを `auto_printer.py` にリネーム）
 - PC を再起動しない限り更新されません。すぐ反映したいときはトレイ →「Quit」→ `start_hidden.vbs`
 
+### 手動で今すぐ更新する（自動更新が入る前の古い版の PC も、これで更新できます）
+
+PowerShell を開き、**どのフォルダからでも**次の1行を貼り付けます（アプリのフォルダへ移動する必要はありません）：
+
+```powershell
+[Net.ServicePointManager]::SecurityProtocol='Tls12'; irm https://raw.githubusercontent.com/assist-grp/pawn-auto-printer/main/update.ps1 | iex
+```
+
+[update.ps1](update.ps1) がアプリのフォルダを自動で探し（動いているアプリ → タスクスケジューラ「PDFAutoPrinter」→ スタートアップ／デスクトップのショートカット → 見つからなければディスクを検索）、`auto_printer.py` を最新版に差し替えてアプリを再起動します。最後に `VERSION: …` の行が表示されれば完了です。
+
+- アプリを動かしている Windows ユーザーでサインインして実行してください（別ユーザーのアプリは見つけられません）
+- 再起動の瞬間にダウンロード中のファイルは印刷されないことがあるので、印刷していないときに実行してください
+
 ---
 
 ## ⚠️ 注意事項
