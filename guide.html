@@ -28,7 +28,8 @@
     position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--line);
     display:flex; gap:4px; padding:0 16px; box-shadow:0 2px 6px rgba(0,0,0,.04);
   }
-  .tabs .wrap{max-width:880px;margin:0 auto;display:flex;gap:6px;width:100%}
+  .tabs .wrap{max-width:880px;margin:0 auto;display:flex;gap:6px;width:100%;overflow-x:auto}
+  .tab{white-space:nowrap}
   .tab{
     appearance:none;border:none;background:none;cursor:pointer;
     padding:14px 18px;font-size:15px;font-weight:700;color:var(--muted);
@@ -98,6 +99,7 @@
   <div class="wrap">
     <button class="tab active" data-target="staff">👤 スタッフ向け（使い方）</button>
     <button class="tab" data-target="install">🛠️ インストール（IT担当向け）</button>
+    <button class="tab" data-target="commands">⚡ コマンド</button>
   </div>
 </nav>
 
@@ -488,6 +490,37 @@
       <li>Edge または Chrome（HTML 変換用）</li>
     </ul>
   </div>
+
+</section>
+
+<!-- ============ COMMANDS ============ -->
+<section class="page" id="commands">
+
+  <div class="lead">
+    <span class="pill">使い方</span>
+    PowerShell を<strong>普通に</strong>開き（スタートボタンを右クリック →「<strong>Windows PowerShell</strong>」、Windows 11 では「<strong>ターミナル</strong>」。「管理者として実行」は選ばない）、下のコマンドを「コピー」ボタンでコピーして貼り付け（右クリックまたは Ctrl+V）、Enter を押します。<strong>どのフォルダからでも実行できます</strong>（アプリの場所は自動で探します）。
+  </div>
+
+  <h2>アプリを最新版にする（更新コマンド）</h2>
+  <div class="card">
+    <div class="cmdbox"><pre id="quick-update-cmd">[Net.ServicePointManager]::SecurityProtocol='Tls12'; irm https://raw.githubusercontent.com/assist-grp/pawn-auto-printer/main/update.ps1 | iex</pre><button type="button" class="copybtn" onclick="copyCmd('quick-update-cmd', this)">コピー</button></div>
+    <ul>
+      <li>アプリを最新版に差し替えて、再起動します（プリンター設定は変わりません）</li>
+      <li>最後に「<strong>Done.</strong>」と出れば完了です。<code>[OK] auto-update can write to this folder</code> と出ていれば、今後は自動で更新されます</li>
+    </ul>
+  </div>
+
+  <h2>アプリを「ドキュメント」フォルダへ移す（移動コマンド）</h2>
+  <div class="card">
+    <div class="cmdbox"><pre id="quick-move-cmd">[Net.ServicePointManager]::SecurityProtocol='Tls12'; irm https://raw.githubusercontent.com/assist-grp/pawn-auto-printer/main/move_to_documents.ps1 | iex</pre><button type="button" class="copybtn" onclick="copyCmd('quick-move-cmd', this)">コピー</button></div>
+    <ul>
+      <li>途中で「<strong>このアプリがデバイスに変更を加えることを許可しますか？</strong>」と出たら「<strong>はい</strong>」</li>
+      <li>最後に「<strong>Done.</strong>」と出れば完了です。プリンター設定・自動起動・ショートカットも引き継がれ、古いフォルダは自動で削除されます</li>
+      <li>アプリが <strong>Program Files</strong> にあるパソコンや、すでに「ドキュメント」にあるパソコンでは、何もしません</li>
+    </ul>
+  </div>
+
+  <div class="callout info">表示の意味（<code>[OK]</code> / <code>[WARN]</code> / <code>[NOTE]</code>）や注意点は、「👤 スタッフ向け」タブの「8. アプリの更新」を見てください。<code>[ERROR]</code> が出たときは、画面の文字をそのままコピーして IT担当に送ってください。</div>
 
 </section>
 
