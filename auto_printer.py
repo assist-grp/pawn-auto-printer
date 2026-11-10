@@ -13,11 +13,13 @@ from pathlib import Path
 # 状態でも更新だけは取りに行けるようにしている。
 # 更新するのはこのファイルだけ（config.json などの設定には触らない）。
 # 止めたいときは config.json に "auto_update": false を書く。
+# 動いている間も毎日のメンテナンス（下の「毎日のメンテナンス」）で更新を確認する。
 # ------------------------------------------------------------
-APP_VERSION = "2026-11-10"
+APP_VERSION = "2026-11-10.2"
 DEFAULT_UPDATE_URL = "https://raw.githubusercontent.com/assist-grp/pawn-auto-printer/main/auto_printer.py"
 _UPDATED_ENV = "PAWN_AUTO_PRINTER_UPDATED"
 _UPDATED_FROM_ENV = "PAWN_AUTO_PRINTER_UPDATED_FROM"
+_RESUME_SINCE_ENV = "PAWN_AUTO_PRINTER_RESUME_SINCE"  # メンテナンスで起動し直したときの停止時刻
 _update_messages = []  # logging の設定前に動くので、メッセージは後でまとめてログに書く
 
 
@@ -48,43 +50,63 @@ def _download_update(url, attempts=3):
             time.sleep(3)
 
 
-def _self_update():
-    """手元のファイルを最新版に差し替えたら True を返す。
-    取得できない・中身がおかしいなど、どんな失敗でも手元のファイルのまま起動を続ける。"""
-    if os.environ.get(_UPDATED_ENV):
-        return False  # 差し替え直後の起動し直し（もう一度は確認しない）
-    script_path = os.path.abspath(__file__)
+def _update_settings(script_path):
+    """config.json から (配布元URL, 自動更新するか) を読む。読めなければ既定値。"""
     url = DEFAULT_UPDATE_URL
     try:
         import json
         with open(os.path.join(os.path.dirname(script_path), "config.json"), encoding="utf-8-sig") as f:
             cfg = json.load(f)
         if cfg.get("auto_update") is False:
-            _update_messages.append("AUTO UPDATE: disabled (config.json auto_update=false)")
-            return False
+            return url, False
         url = cfg.get("update_url") or url
     except Exception:
         pass  # config.json が無い・読めない場合は既定の配布元で続ける
+    return url, True
 
+
+def _fetch_new_version(script_path, url, attempts=3):
+    """配布元の版を取得し、手元と違えば確認済みの中身(bytes)を返す。同じなら None。
+    戻り値は (新しい中身 or None, 手元の中身)。取得失敗・中身がおかしいときは例外。"""
+    new_data = _download_update(url, attempts)
+    with open(script_path, "rb") as f:
+        old_data = f.read()
+    if new_data == old_data:
+        return None, old_data
+    # エラーページや途中で切れたファイルで上書きしないための確認
+    new_text = new_data.decode("utf-8")
+    if "class PDFHandler" not in new_text or "def _self_update" not in new_text:
+        raise ValueError("downloaded file does not look like auto_printer.py")
+    compile(new_text, script_path, "exec")  # 文法エラーがあれば差し替えない
+    return new_data, old_data
+
+
+def _install_new_version(script_path, new_data):
+    """確認済みの新しい版でこのファイルを置き換える（前の版は .bak に残す）。"""
+    import shutil
+    tmp_path = script_path + ".new"
+    with open(tmp_path, "wb") as f:
+        f.write(new_data)
+    shutil.copy2(script_path, script_path + ".bak")  # 手で戻せるよう前の版を残す
+    os.replace(tmp_path, script_path)
+
+
+def _self_update():
+    """手元のファイルを最新版に差し替えたら True を返す。
+    取得できない・中身がおかしいなど、どんな失敗でも手元のファイルのまま起動を続ける。"""
+    if os.environ.get(_UPDATED_ENV):
+        return False  # 差し替え直後の起動し直し（もう一度は確認しない）
+    script_path = os.path.abspath(__file__)
+    url, enabled = _update_settings(script_path)
+    if not enabled:
+        _update_messages.append("AUTO UPDATE: disabled (config.json auto_update=false)")
+        return False
     try:
-        new_data = _download_update(url)
-        with open(script_path, "rb") as f:
-            old_data = f.read()
-        if new_data == old_data:
+        new_data, old_data = _fetch_new_version(script_path, url)
+        if new_data is None:
             _update_messages.append("AUTO UPDATE: already up to date")
             return False
-        # エラーページや途中で切れたファイルで上書きしないための確認
-        new_text = new_data.decode("utf-8")
-        if "class PDFHandler" not in new_text or "def _self_update" not in new_text:
-            raise ValueError("downloaded file does not look like auto_printer.py")
-        compile(new_text, script_path, "exec")  # 文法エラーがあれば差し替えない
-
-        import shutil
-        tmp_path = script_path + ".new"
-        with open(tmp_path, "wb") as f:
-            f.write(new_data)
-        shutil.copy2(script_path, script_path + ".bak")  # 手で戻せるよう前の版を残す
-        os.replace(tmp_path, script_path)
+        _install_new_version(script_path, new_data)
         os.environ[_UPDATED_FROM_ENV] = _short_hash(old_data)
         return True
     except Exception as e:
@@ -271,14 +293,67 @@ class PDFHandler(FileSystemEventHandler):
 
     def seed_existing(self, directory):
         """起動時に既にあるファイルは処理済み扱いにして無視する（従来の挙動を維持）。
-        再スキャンの対象を『起動後に現れたファイル』だけに限定するため。"""
+        再スキャンの対象を『起動後に現れたファイル』だけに限定するため。
+        ただしメンテナンスで起動し直した直後は、止まっていた数秒の間に届いたファイルを
+        印刷対象として残す（取りこぼし防止）。"""
+        since = None
+        try:
+            since = float(os.environ.get(_RESUME_SINCE_ENV, "")) - 5
+        except ValueError:
+            since = None
         try:
             for name in os.listdir(directory):
                 low = name.lower()
                 if low.endswith((".html", ".pdf")):
-                    self.processed_files.add(os.path.join(directory, name))
+                    fp = os.path.join(directory, name)
+                    if since is not None:
+                        try:
+                            if os.path.getmtime(fp) >= since:
+                                logging.info(f"KEPT FOR PRINTING (arrived during restart): {name}")
+                                continue
+                        except OSError:
+                            pass
+                    self.processed_files.add(fp)
         except Exception as e:
             logging.error(f"SEED ERROR: {e}")
+
+    # 印刷対象のファイル名（process_file の判定と同じ）
+    KANRIHYO_PATTERN = re.compile(r'^管理票[\s\(（]?.*\.(pdf|html)$', re.IGNORECASE)
+
+    @classmethod
+    def is_print_target(cls, filename):
+        if not filename.lower().endswith((".pdf", ".html")):
+            return False
+        upper = filename.upper()
+        return bool(cls.KANRIHYO_PATTERN.match(filename)) or "PRINT_A4" in upper or "PRINT_A5" in upper
+
+    def cleanup_old_targets(self, directory, older_than=3600):
+        """印刷できずに残った印刷対象ファイル（PRINT_A4 / PRINT_A5 / 管理票、変換用の
+        *.html.pdf を含む）のうち、older_than 秒より前のものを削除する。それ以外のファイルには触らない。"""
+        now = time.time()
+        deleted = 0
+        try:
+            names = os.listdir(directory)
+        except OSError as e:
+            logging.error(f"CLEANUP ERROR: {e}")
+            return 0
+        for name in names:
+            if not self.is_print_target(name):
+                continue
+            fp = os.path.join(directory, name)
+            if fp in self.processing_lock or fp in self.enqueued:
+                continue
+            try:
+                if not os.path.isfile(fp) or now - os.path.getmtime(fp) < older_than:
+                    continue
+                os.remove(fp)
+                deleted += 1
+                self.processed_files.discard(fp)
+                self.failed_counts.pop(fp, None)
+                logging.info(f"CLEANUP: deleted old unprinted file: {name}")
+            except OSError as e:
+                logging.error(f"CLEANUP: could not delete {name}: {e}")
+        return deleted
 
     def scan_existing(self, directory):
         """フォルダを定期的に再スキャンし、イベントを取りこぼした未処理ファイルを救済する。"""
@@ -705,6 +780,297 @@ class PDFHandler(FileSystemEventHandler):
             logging.error(f"KANRIHYO PRINT FAILED: {e}")
             return False
 
+
+# ------------------------------------------------------------
+# 毎日のメンテナンス（スリープで使い続けるPC向け）
+# 起動時の自動更新だけだと、スリープで使い続けるPCには修正が届かない。
+# 毎日 maintenance_time（config.json、既定 20:00）に、
+#   1. 印刷できずに残った古いファイル（PRINT_A4 / PRINT_A5 / 管理票）の片付け
+#   2. 配布元の確認。新しい版があれば、印刷していないときに起動し直す
+# を行う。スリープ中でも、タスクスケジューラのスリープ解除タイマーでPCを起こす。
+# 起こせなかった（電源設定でスリープ解除タイマーが無効など）ときは、次にPCが起きたときに行う。
+# ------------------------------------------------------------
+WAKE_TASK_NAME = "PDFAutoPrinterWake"
+MAINTENANCE_TICK = 30          # 見回りの間隔（秒）
+IDLE_SECONDS = 120             # 監視フォルダに直近2分間動きがないときだけ起動し直す
+KEEP_AWAKE_LIMIT = 15 * 60     # メンテナンス中にPCを起こしておく上限（秒）
+CLEANUP_OLDER_THAN = 3600      # 片付けるのは1時間より前のファイルだけ
+UPDATE_RETRY_DELAY = 120       # スリープ解除直後はネットワークがつながっていないことがあるので、失敗したら2分後に再確認
+UPDATE_RETRY_MAX = 3
+
+
+def _maintenance_time():
+    """config.json の maintenance_time（"HH:MM"）。おかしければ 20:00。"""
+    value = str(config.get("maintenance_time") or "20:00")
+    try:
+        hh, mm = (int(x) for x in value.split(":"))
+        if 0 <= hh < 24 and 0 <= mm < 60:
+            return hh, mm
+    except ValueError:
+        pass
+    logging.error(f"MAINTENANCE: invalid maintenance_time {value!r}; using 20:00")
+    return 20, 0
+
+
+def _next_maintenance_after(ts, hh, mm):
+    """時刻 ts より後で最初に来る hh:mm（ローカル時刻）のタイムスタンプ。"""
+    import datetime
+    base = datetime.datetime.fromtimestamp(ts)
+    target = base.replace(hour=hh, minute=mm, second=0, microsecond=0)
+    if target <= base:
+        target += datetime.timedelta(days=1)
+    return target.timestamp()
+
+
+def _keep_awake(on):
+    """メンテナンス中にPCがまたスリープしないようにする（Windows のみ。同じスレッドから解除する）。"""
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+        ES_CONTINUOUS, ES_SYSTEM_REQUIRED = 0x80000000, 0x00000001
+        ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | (ES_SYSTEM_REQUIRED if on else 0))
+    except Exception:
+        pass
+
+
+def _register_wake_task(hh, mm):
+    """毎日 hh:mm に、スリープ中でもPCを起こすタスク（このユーザー用）を登録する。
+    実行するのは start_hidden.vbs（アプリが動いていれば何もしない。止まっていれば起動する）。
+    アプリのフォルダを移しても、起動のたびに今の場所で登録し直す。"""
+    if os.name != "nt":
+        return
+    vbs = os.path.join(os.path.dirname(os.path.abspath(__file__)), "start_hidden.vbs")
+
+    def q(s):
+        return "'" + s.replace("'", "''") + "'"
+
+    ps = (
+        f"$a = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument {q(chr(34) + vbs + chr(34))}; "
+        f"$t = New-ScheduledTaskTrigger -Daily -At {q(f'{hh:02d}:{mm:02d}')}; "
+        "$s = New-ScheduledTaskSettingsSet -WakeToRun -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries "
+        "-ExecutionTimeLimit (New-TimeSpan -Minutes 5); "
+        f"Register-ScheduledTask -TaskName {q(WAKE_TASK_NAME)} -Action $a -Trigger $t -Settings $s "
+        "-Description 'PDF Auto Printer: wake the PC for the daily update check and cleanup' -Force | Out-Null"
+    )
+    try:
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", ps],
+            capture_output=True, text=True, errors="replace", timeout=60,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+        if r.returncode == 0:
+            logging.info(f"MAINTENANCE: wake task '{WAKE_TASK_NAME}' set for {hh:02d}:{mm:02d} every day")
+        else:
+            logging.error(f"MAINTENANCE: could not set the wake task: {(r.stderr or r.stdout).strip()[:300]}")
+    except Exception as e:
+        logging.error(f"MAINTENANCE: could not set the wake task: {e}")
+
+
+def _watch_dir_is_quiet(directory, seconds):
+    """監視フォルダに、直近 seconds 秒以内に変更されたファイルが無いか（ダウンロード中・直後でないか）。"""
+    now = time.time()
+    try:
+        names = os.listdir(directory)
+    except OSError:
+        return True
+    for name in names:
+        try:
+            age = now - os.path.getmtime(os.path.join(directory, name))
+        except OSError:
+            continue
+        if 0 <= age < seconds:
+            return False
+    return True
+
+
+def _restart_with_new_version(handler, old_hash):
+    """新しい版で起動し直す。いつもの起動と同じ start_hidden.vbs を使うため、このプロセスが
+    終わってから起動されるよう、5秒待って start_hidden.vbs を実行する小さな補助プロセスを残して終了する。"""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    vbs = os.path.join(script_dir, "start_hidden.vbs")
+    env = dict(os.environ)
+    env.pop(_UPDATED_ENV, None)
+    env[_UPDATED_FROM_ENV] = old_hash
+    env[_RESUME_SINCE_ENV] = str(time.time())  # 止まっている間に届いたファイルを新しいプロセスで印刷する
+    code = ("import subprocess, sys, time; time.sleep(5); "
+            "subprocess.Popen(['wscript.exe', sys.argv[1]], cwd=sys.argv[2])")
+    flags = (subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP) if os.name == "nt" else 0
+    subprocess.Popen([sys.executable, "-c", code, vbs, script_dir], env=env, cwd=script_dir,
+                     creationflags=flags, close_fds=True)
+    logging.info("MAINTENANCE: restarting the app with the new version")
+    try:
+        if handler.icon:
+            handler.icon.stop()
+            time.sleep(1)
+    except Exception:
+        pass
+    logging.shutdown()
+    os._exit(0)
+
+
+# ------------------------------------------------------------
+# 状況報告（どのPCに最新版が入っているか把握するため）
+# 起動時と毎日のメンテナンスのときに、Googleフォームへ PC名・版・場所・自動更新の可否を送る。
+# 回答はフォームにつながったスプレッドシートに1行ずつたまる（「シート1」でPCごとの最新を表示）。
+# 送るだけで、失敗しても印刷には影響しない。止めたいときは config.json に "report": false を書く。
+# ------------------------------------------------------------
+REPORT_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfk9KQky5vwbi6kZQN-_1W1jPixLE3tm026SQwBHkYvvaoCEQ/formResponse"
+REPORT_FIELDS = {
+    "pc": "entry.1919051211",           # PC名
+    "version": "entry.976938217",       # バージョン
+    "place": "entry.658338747",         # 場所
+    "auto_update": "entry.372646551",   # 自動更新
+}
+REPORT_RETRY_DELAY = 60   # 起動直後はネットワークがまだ繋がっていないことがあるので、失敗したら1分後に再送
+REPORT_RETRY_MAX = 5
+
+
+def _auto_update_status(script_dir):
+    """自動更新できる状態か（設定で止めていないか、フォルダに書き込めるか）。"""
+    _url, enabled = _update_settings(os.path.join(script_dir, "auto_printer.py"))
+    if not enabled:
+        return "無効 (auto_update=false)"
+    probe = os.path.join(script_dir, f"write_test_{uuid.uuid4().hex}.tmp")
+    try:
+        with open(probe, "w") as f:
+            f.write("x")
+        os.remove(probe)
+        return "OK"
+    except OSError:
+        return "NG (フォルダに書き込めない)"
+
+
+def send_status_report(trigger):
+    """状況を1回送る。成功したら True。"""
+    script_path = os.path.abspath(__file__)
+    script_dir = os.path.dirname(script_path)
+    try:
+        with open(script_path, "rb") as f:
+            digest = _short_hash(f.read())
+    except OSError:
+        digest = "?"
+    data = {
+        REPORT_FIELDS["pc"]: f"{os.environ.get('COMPUTERNAME', '?')} ({os.environ.get('USERNAME', '?')})",
+        REPORT_FIELDS["version"]: f"{APP_VERSION} (sha256 {digest})",
+        REPORT_FIELDS["place"]: script_dir,
+        REPORT_FIELDS["auto_update"]: _auto_update_status(script_dir),
+    }
+    url = config.get("report_url") or REPORT_URL
+    try:
+        import urllib.parse
+        import urllib.request
+        req = urllib.request.Request(
+            url, data=urllib.parse.urlencode(data).encode("utf-8"),
+            headers={"User-Agent": "pawn-auto-printer-report",
+                     "Content-Type": "application/x-www-form-urlencoded; charset=utf-8"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            resp.read(1)
+        logging.info(f"REPORT: sent ({trigger})")
+        return True
+    except Exception as e:
+        logging.info(f"REPORT: not sent ({trigger}): {e}")
+        return False
+
+
+def report_in_background(trigger):
+    """印刷を止めないよう別スレッドで送る。失敗したら少し待って数回やり直す。"""
+    if config.get("report", True) is False:
+        return
+
+    def run():
+        for i in range(REPORT_RETRY_MAX):
+            if send_status_report(trigger):
+                return
+            time.sleep(REPORT_RETRY_DELAY)
+
+    threading.Thread(target=run, daemon=True).start()
+
+
+def maintenance_loop(handler, watch_dir):
+    script_path = os.path.abspath(__file__)
+    hh, mm = _maintenance_time()
+    if config.get("maintenance_wake", True) is not False:
+        _register_wake_task(hh, mm)
+    next_due = _next_maintenance_after(time.time(), hh, mm)
+    check_at = None      # 更新を確認する時刻（失敗したら少し後にやり直す）
+    check_tries = 0
+    pending = None       # 見つかった新しい版 (中身, 今の版のハッシュ)。印刷していないときに入れ替える
+    awake_since = None
+
+    def release_awake():
+        nonlocal awake_since
+        if awake_since is not None:
+            _keep_awake(False)
+            awake_since = None
+
+    while True:
+        time.sleep(MAINTENANCE_TICK)
+        try:
+            now = time.time()
+            # 1. メンテナンス開始（時刻を過ぎていたら。スリープ明けで遅れた場合もここで行う）
+            if now >= next_due and pending is None and check_at is None:
+                late = now - next_due
+                note = "" if late < 600 else f" (late by {int(late // 60)} min: the PC was asleep or off)"
+                logging.info(f"MAINTENANCE: start{note}")
+                _keep_awake(True)
+                awake_since = now
+                report_in_background("maintenance")
+                if config.get("maintenance_cleanup", True) is not False:
+                    n = handler.cleanup_old_targets(watch_dir, CLEANUP_OLDER_THAN)
+                    logging.info(f"MAINTENANCE: cleanup deleted {n} old unprinted file(s)")
+                next_due = _next_maintenance_after(now, hh, mm)
+                url, enabled = _update_settings(script_path)
+                if enabled:
+                    check_at, check_tries = now, 0
+                else:
+                    logging.info("MAINTENANCE: auto update is disabled (config.json auto_update=false)")
+
+            # 2. 更新の確認
+            if check_at is not None and now >= check_at:
+                url, _enabled = _update_settings(script_path)
+                try:
+                    new_data, old_data = _fetch_new_version(script_path, url)
+                    check_at = None
+                    if new_data is None:
+                        logging.info("MAINTENANCE: already up to date")
+                    else:
+                        pending = (new_data, _short_hash(old_data))
+                        logging.info(f"MAINTENANCE: new version found (sha256 {_short_hash(new_data)}); "
+                                     "the app restarts when nothing is being printed")
+                except Exception as e:
+                    check_tries += 1
+                    if check_tries < UPDATE_RETRY_MAX:
+                        check_at = now + UPDATE_RETRY_DELAY
+                        logging.info(f"MAINTENANCE: update check failed ({e}); retry in {UPDATE_RETRY_DELAY // 60} min")
+                    else:
+                        check_at = None
+                        logging.info(f"MAINTENANCE: update check skipped ({e}); next try at the next maintenance")
+
+            # 3. 新しい版への入れ替え（印刷していない・ダウンロードもない時だけ）
+            if pending is not None:
+                if awake_since is not None and now - awake_since > KEEP_AWAKE_LIMIT:
+                    release_awake()  # PCを起こしておくのはここまで。入れ替えは暇になったときに続ける
+                busy = handler.work_queue.unfinished_tasks > 0 or bool(handler.processing_lock)
+                if busy or not _watch_dir_is_quiet(watch_dir, IDLE_SECONDS):
+                    continue
+                new_data, old_hash = pending
+                try:
+                    _install_new_version(script_path, new_data)
+                except Exception as e:
+                    logging.error(f"MAINTENANCE: could not install the new version ({e}); "
+                                  "will try again at the next maintenance")
+                    pending = None
+                    release_awake()
+                    continue
+                _restart_with_new_version(handler, old_hash)
+
+            if check_at is None and pending is None:
+                release_awake()
+        except Exception as e:
+            logging.error(f"MAINTENANCE ERROR: {e}")
+
+
 if __name__ == "__main__":
     path = config.get("watch_directory")
     if not os.path.exists(path):
@@ -727,6 +1093,13 @@ if __name__ == "__main__":
     # 定期再スキャン: イベントを取りこぼした未処理ファイルを確実に救済する保険。
     rescan_thread = threading.Thread(target=event_handler.scan_existing, args=(path,), daemon=True)
     rescan_thread.start()
+
+    # 毎日のメンテナンス（片付け・更新の確認。スリープ中ならPCを起こす）
+    maintenance_thread = threading.Thread(target=maintenance_loop, args=(event_handler, path), daemon=True)
+    maintenance_thread.start()
+
+    # 状況報告（どのPCが最新版か把握するため。失敗しても印刷には影響しない）
+    report_in_background("startup")
 
     # System Tray Icon Setup
     def quit_app(icon, item):
