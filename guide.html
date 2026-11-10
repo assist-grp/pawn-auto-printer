@@ -227,7 +227,7 @@
 
     <h3>アプリが起動していない（トレイにアイコンがない）</h3>
     <ol>
-      <li>インストールフォルダを開く<br><span style="color:var(--muted);font-size:13px">場所：<code>C:\Program Files (x86)\pawn-auto-printer\dev\pawn-auto-printer</code></span></li>
+      <li>インストールフォルダを開く<br><span style="color:var(--muted);font-size:13px">場所：「ドキュメント」フォルダの中の <code>pawn-auto-printer</code>（以前から使っているパソコンは <code>C:\Program Files (x86)\pawn-auto-printer\dev\pawn-auto-printer</code>）</span></li>
       <li><strong><code>start_hidden.vbs</code></strong> をダブルクリック</li>
       <li>トレイにアイコンが出れば復活です</li>
       <li>それでも出ない場合は、IT担当に連絡してください</li>
@@ -313,10 +313,10 @@
     </table>
 
     <h3>アプリのフォルダを移す（自動更新ができないと表示されたとき）</h3>
-    <p>おすすめの場所は <code>C:\pawn-auto-printer</code> です（管理者権限なしで書き込めて、どのパソコンでも同じ場所にできます）。</p>
+    <p>移す先は<strong>「ドキュメント」フォルダの中</strong>です（例：<code>C:\Users\（ユーザー名）\Documents\pawn-auto-printer</code>）。ここなら管理者権限なしで書き込めます。</p>
     <ol>
       <li>タスクトレイのアイコンを右クリック →「Quit」で、アプリを止める</li>
-      <li>エクスプローラーで C ドライブに <code>pawn-auto-printer</code> フォルダを作り、今のアプリのフォルダの<strong>中身を全部コピー</strong>する（<code>config.json</code> も一緒にコピーすれば、プリンター設定はそのまま使えます）</li>
+      <li>エクスプローラーの左側の「<strong>ドキュメント</strong>」を開き、その中に <code>pawn-auto-printer</code> フォルダを作って、今のアプリのフォルダの<strong>中身を全部コピー</strong>する（<code>config.json</code> も一緒にコピーすれば、プリンター設定はそのまま使えます）</li>
       <li>新しいフォルダの <code>register_autostart.bat</code> を右クリック →「<strong>管理者として実行</strong>」（自動起動の登録し直し。アプリも起動します）</li>
       <li>スタートアップに<strong>古い場所</strong>を指すショートカットが残っていれば削除する（アドレスバーに <code>shell:startup</code> と入力して Enter で開けます。手順は「6.」の「パソコン起動時にエラーのメッセージが出る」と同じ）。デスクトップのショートカットも、新しいフォルダの <code>create_desktop_shortcut.bat</code> で作り直す</li>
       <li>上の更新コマンドをもう一度実行し、<code>[OK] auto-update can write to this folder</code> と出れば完了。古いフォルダは削除してかまいません</li>
@@ -348,6 +348,10 @@
       <li><strong>管理者の権限</strong>（インストールには管理者として実行が必要です）</li>
       <li>時間の目安：<strong>10〜20分</strong></li>
     </ul>
+    <div class="callout warn">
+      <div class="ttl">アプリの置き場所は「ドキュメント」フォルダの中</div>
+      zip は「ドキュメント」フォルダの中に展開してください（例：<code>C:\Users\（ユーザー名）\Documents\pawn-auto-printer</code>）。アプリは管理者権限なしで動くので、<code>Program Files</code> などに置くと自動更新ができません。ダウンロードフォルダも、整理したときに消してしまう恐れがあるので避けてください。「ドキュメント」が OneDrive と同期されている場合は、フォルダを右クリック →「このデバイス上で常に保持する」を選んでください。
+    </div>
     <h3>このアプリでやること（全体の流れ）</h3>
     <ol>
       <li>アプリに必要なソフト（Python・SumatraPDF・部品）を入れる</li>
@@ -416,7 +420,7 @@
   <h2>ステップ 4：プリンターを選ぶ（使い始める設定）</h2>
   <div class="card">
     <p>ここまでできたら、上の「👤 スタッフ向け」タブの「2. プリンターの設定」を見て、印刷先のプリンターを選んでください。トレイアイコンを右クリックするだけで設定できます。</p>
-    <div class="callout info">アプリは起動するたびに自動で最新版に更新されます。ただし、アプリのフォルダに管理者権限なしで書き込めないと自動更新できません（<code>C:\Program Files (x86)</code> の下は、ふつうは書き込めません）。おすすめの置き場所は <code>C:\pawn-auto-printer</code> です。インストール後に一度、更新コマンドで確認してください（「👤 スタッフ向け」タブの「8. アプリの更新」）。</div>
+    <div class="callout info">アプリは起動するたびに自動で最新版に更新されます。ただし、アプリのフォルダに管理者権限なしで書き込めないと自動更新できません（<code>C:\Program Files (x86)</code> の下は、ふつうは書き込めません）。インストール後に一度、更新コマンドで確認してください（「👤 スタッフ向け」タブの「8. アプリの更新」）。</div>
   </div>
 
   <h2>トラブルシューティング</h2>

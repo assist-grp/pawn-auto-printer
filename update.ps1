@@ -157,7 +157,7 @@
             } else {
                 $allWritable = $false
                 Write-Host '  [WARN] auto-update CANNOT write to this folder (admin rights needed).' -ForegroundColor Yellow
-                Write-Host '         The app will stay on the old version. Move the app to C:\pawn-auto-printer (see the manual).' -ForegroundColor Yellow
+                Write-Host '         The app will stay on the old version. Move the app into the Documents folder (see the manual).' -ForegroundColor Yellow
             }
         }
     }
