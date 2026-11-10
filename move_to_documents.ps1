@@ -48,6 +48,24 @@
             Where-Object { $_.CommandLine -and $_.CommandLine -like '*auto_printer.py*' })
     }
 
+    # A start_hidden.vbs that is still starting the app (it checks for 3 seconds and, if the app
+    # is gone, starts it again with another python command). Stop it too when stopping the app.
+    function Get-LauncherProcesses {
+        @(Get-CimInstance Win32_Process -Filter "Name = 'wscript.exe'" -ErrorAction SilentlyContinue |
+            Where-Object { $_.CommandLine -and $_.CommandLine -like '*start_hidden.vbs*' })
+    }
+
+    function Stop-App {
+        $deadline = (Get-Date).AddSeconds(15)
+        do {
+            foreach ($p in @(Get-LauncherProcesses) + @(Get-AppProcesses)) {
+                try { Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop } catch {}
+            }
+            Start-Sleep -Milliseconds 500
+        } while ((Get-Date) -lt $deadline -and (@(Get-LauncherProcesses).Count + @(Get-AppProcesses).Count) -gt 0)
+        Start-Sleep -Seconds 1
+    }
+
     function Start-App($dir) {
         Start-Process -FilePath 'wscript.exe' -ArgumentList ('"' + (Join-Path $dir 'start_hidden.vbs') + '"') -WorkingDirectory $dir
     }
@@ -164,10 +182,9 @@
     # ---------- 3. Stop the app and copy ----------
     Write-Host ''
     Write-Host 'Stopping the app...'
-    foreach ($p in Get-AppProcesses) {
-        try { Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop } catch {}
-    }
-    Start-Sleep -Seconds 2
+    # Stop the app (and a start_hidden.vbs that may still be starting it) and wait until it is gone:
+    # files get unlocked, and the new start_hidden.vbs will not think the app is "already running".
+    Stop-App
 
     Write-Host 'Copying files...'
     try {

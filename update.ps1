@@ -45,6 +45,24 @@
             Where-Object { $_.CommandLine -and $_.CommandLine -like '*auto_printer.py*' })
     }
 
+    # A start_hidden.vbs that is still starting the app (it checks for 3 seconds and, if the app
+    # is gone, starts it again with another python command). Stop it too when stopping the app.
+    function Get-LauncherProcesses {
+        @(Get-CimInstance Win32_Process -Filter "Name = 'wscript.exe'" -ErrorAction SilentlyContinue |
+            Where-Object { $_.CommandLine -and $_.CommandLine -like '*start_hidden.vbs*' })
+    }
+
+    function Stop-App {
+        $deadline = (Get-Date).AddSeconds(15)
+        do {
+            foreach ($p in @(Get-LauncherProcesses) + @(Get-AppProcesses)) {
+                try { Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop } catch {}
+            }
+            Start-Sleep -Milliseconds 500
+        } while ((Get-Date) -lt $deadline -and (@(Get-LauncherProcesses).Count + @(Get-AppProcesses).Count) -gt 0)
+        Start-Sleep -Seconds 1
+    }
+
     # (a) The running app. start_hidden.vbs launches:
     #     cmd /c python auto_printer.py 2> "<folder>\startup_error.txt"
     foreach ($p in Get-AppProcesses) {
@@ -188,10 +206,9 @@
     $primary = @($found.Values)[0]   # running app > scheduled task > shortcut > disk search
     Write-Host ''
     Write-Host "Restarting the app: $($primary.Path)"
-    foreach ($p in Get-AppProcesses) {
-        try { Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop } catch {}
-    }
-    Start-Sleep -Seconds 2
+    # Stop the app (and a start_hidden.vbs that may still be starting it) and wait until it is gone;
+    # otherwise the new start_hidden.vbs thinks the app is "already running" and does nothing.
+    Stop-App
 
     $logName = 'printer_log.txt'
     try {
