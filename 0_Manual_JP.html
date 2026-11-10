@@ -366,6 +366,46 @@
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         }
 
+        /* コピーして貼り付けるコマンド */
+        .cmd-box {
+            display: flex;
+            gap: 12px;
+            align-items: stretch;
+            margin: 16px 0 8px;
+        }
+
+        .cmd-box pre {
+            flex: 1;
+            min-width: 0;
+            margin: 0;
+            padding: 16px 20px;
+            background: #0f172a;
+            color: #e2e8f0;
+            border-radius: 12px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-all;
+            user-select: all;
+        }
+
+        .cmd-copy {
+            flex-shrink: 0;
+            padding: 0 20px;
+            border: none;
+            border-radius: 12px;
+            background: var(--primary-dark);
+            color: #ffffff;
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .cmd-copy:hover {
+            background: var(--accent);
+        }
+
         /* Mock UI Elements */
         .mock-ui {
             background: #f1f5f9;
@@ -862,19 +902,82 @@
         <section id="update">
             <h2>アプリの更新方法</h2>
             <div class="card">
-                <p>新しいバージョンのアプリ（auto_printer.py など）が届いた際の手順です。</p>
+                <p><strong>アプリは起動するたびに、自動で最新版に更新されます。</strong>ふだんは何もする必要はありません（パソコンを起動すれば最新版になります）。</p>
+
+                <h3>今すぐ更新したいとき／自動更新が入る前の古いアプリのとき</h3>
+                <p>どのパソコンでも、同じコマンドを1行貼り付けるだけで更新できます。アプリの保存場所は自動で探すので、フォルダを開く必要はありません。</p>
                 <div class="step-list">
                     <div class="step-item">
                         <div class="step-number">1</div>
-                        <div><span class="file-pill">stop_printer.bat</span> を実行して、今のアプリを止めます。</div>
+                        <div>スタートボタンを右クリック →「<strong>Windows PowerShell</strong>」（Windows 11 では「<strong>ターミナル</strong>」）を開きます。管理者として実行する必要はありません。</div>
                     </div>
                     <div class="step-item">
                         <div class="step-number">2</div>
-                        <div>新しいファイルを現在のフォルダに上書きコピーします。</div>
+                        <div>
+                            下のコマンドを「コピー」ボタンでコピーし、PowerShell に貼り付けて（右クリックまたは Ctrl+V）Enter を押します。
+                            <div class="cmd-box">
+                                <pre id="update-cmd">[Net.ServicePointManager]::SecurityProtocol='Tls12'; irm https://raw.githubusercontent.com/assist-grp/pawn-auto-printer/main/update.ps1 | iex</pre>
+                                <button type="button" class="cmd-copy" onclick="copyCmd('update-cmd', this)">コピー</button>
+                            </div>
+                        </div>
                     </div>
                     <div class="step-item">
                         <div class="step-number">3</div>
-                        <div>デスクトップのショートカットから再起動してください。</div>
+                        <div>最後に <span class="file-pill">VERSION: …</span> の行と「<strong>Done.</strong>」が表示されれば完了です。アプリは自動で再起動されるので、<strong>アプリやパソコンの再起動は不要</strong>です。</div>
+                    </div>
+                </div>
+                <div class="callout callout-info">
+                    <div class="callout-icon">💡</div>
+                    <div class="callout-content">
+                        <strong>実行するときの注意</strong><br>
+                        ・アプリを動かしている Windows ユーザーでサインインして実行してください（ユーザーごとに必要です）。<br>
+                        ・印刷していないときに実行してください（再起動の瞬間に届いたファイルは印刷されないことがあります）。<br>
+                        ・プリンター設定（<span class="file-pill">config.json</span>）は変更されません。
+                    </div>
+                </div>
+                <div class="callout callout-warning">
+                    <div class="callout-icon">⚠️</div>
+                    <div class="callout-content">
+                        <strong>[ERROR]</strong> や <strong>[WARN]</strong> と表示されたときは、画面の文字をそのままコピーして IT 担当に送ってください。
+                    </div>
+                </div>
+
+                <h3>自動更新できるか確認する（アプリを Program Files に置いている場合・最初の1回）</h3>
+                <p>アプリは管理者権限なしで動くため、アプリのフォルダに書き込めないと自動更新が失敗し、古い版のまま動き続けます。アプリを <span class="file-pill">C:\Program Files (x86)\pawn-auto-printer\dev\pawn-auto-printer</span> に置いているパソコンでは、一度だけ次の確認をしてください。</p>
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-number">1</div>
+                        <div>PowerShell を<strong>普通に</strong>開きます（右クリックで「管理者として実行」は<strong>選ばない</strong>でください。管理者で開くと正しく確認できません）。</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">2</div>
+                        <div>
+                            下のコマンドをコピーして貼り付け、Enter を押します。
+                            <div class="cmd-box">
+                                <pre id="write-test-cmd">New-Item "C:\Program Files (x86)\pawn-auto-printer\dev\pawn-auto-printer\write_test.txt" -Force | Out-Null; Remove-Item "C:\Program Files (x86)\pawn-auto-printer\dev\pawn-auto-printer\write_test.txt"; "OK: writable"</pre>
+                                <button type="button" class="cmd-copy" onclick="copyCmd('write-test-cmd', this)">コピー</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">3</div>
+                        <div><span class="file-pill">OK: writable</span> と表示されれば問題ありません。「<strong>アクセスが拒否されました</strong>」と表示された場合は自動更新ができないので、IT 担当に連絡してください。</div>
+                    </div>
+                </div>
+
+                <h3>手作業で入れ替える場合（インターネットにつながらないパソコンなど）</h3>
+                <div class="step-list">
+                    <div class="step-item">
+                        <div class="step-number">1</div>
+                        <div>タスクトレイのアイコンを右クリック →「Quit」で、今のアプリを止めます。</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">2</div>
+                        <div>新しい <span class="file-pill">auto_printer.py</span> を、今のアプリのフォルダに上書きコピーします。</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">3</div>
+                        <div>デスクトップのショートカット（または <span class="file-pill">start_hidden.vbs</span>）から起動し直してください。</div>
                     </div>
                 </div>
                 <div class="callout callout-info">
@@ -932,6 +1035,29 @@
                 }
             });
         });
+
+        // コマンドのコピーボタン（file:// で開いた場合も動くよう、選択→コピーの予備手段つき）
+        function copyCmd(id, btn) {
+            const el = document.getElementById(id);
+            const text = el.innerText.trim();
+            const done = () => {
+                btn.textContent = 'コピーしました';
+                setTimeout(() => { btn.textContent = 'コピー'; }, 2000);
+            };
+            const fallback = () => {
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+                try { if (document.execCommand('copy')) { done(); } } catch (e) { /* 選択だけされた状態で残す */ }
+            };
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(done, fallback);
+            } else {
+                fallback();
+            }
+        }
     </script>
 </body>
 
