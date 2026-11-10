@@ -5,6 +5,101 @@ import tempfile
 import uuid
 from pathlib import Path
 
+# ------------------------------------------------------------
+# 自動更新
+# 起動時に配布元（GitHub の main ブランチ）の auto_printer.py と比べ、
+# 違っていれば差し替えてから、新しいコードで起動し直す。
+# watchdog などの外部パッケージより前に置き、パッケージ不足で起動できない
+# 状態でも更新だけは取りに行けるようにしている。
+# 更新するのはこのファイルだけ（config.json などの設定には触らない）。
+# 止めたいときは config.json に "auto_update": false を書く。
+# ------------------------------------------------------------
+APP_VERSION = "2026-11-10"
+DEFAULT_UPDATE_URL = "https://raw.githubusercontent.com/assist-grp/pawn-auto-printer/main/auto_printer.py"
+_UPDATED_ENV = "PAWN_AUTO_PRINTER_UPDATED"
+_UPDATED_FROM_ENV = "PAWN_AUTO_PRINTER_UPDATED_FROM"
+_update_messages = []  # logging の設定前に動くので、メッセージは後でまとめてログに書く
+
+
+def _short_hash(data):
+    import hashlib
+    return hashlib.sha256(data).hexdigest()[:8]
+
+
+def _download_update(url, attempts=3):
+    """配布元から最新版を取得する。PC起動直後はネットワークがまだ繋がって
+    いないことがあるので、接続エラーのときだけ数回やり直す。"""
+    import time
+    import urllib.error
+    import urllib.request
+    if url.startswith(("http://", "https://")):
+        # GitHub の CDN キャッシュで古い版が返らないようにする
+        url += ("&" if "?" in url else "?") + f"t={int(time.time())}"
+    req = urllib.request.Request(url, headers={"User-Agent": "pawn-auto-printer-updater"})
+    for i in range(attempts):
+        try:
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                return resp.read()
+        except urllib.error.HTTPError:
+            raise  # 404 などはやり直しても同じなのですぐ諦める
+        except Exception:
+            if i == attempts - 1:
+                raise
+            time.sleep(3)
+
+
+def _self_update():
+    """手元のファイルを最新版に差し替えたら True を返す。
+    取得できない・中身がおかしいなど、どんな失敗でも手元のファイルのまま起動を続ける。"""
+    if os.environ.get(_UPDATED_ENV):
+        return False  # 差し替え直後の起動し直し（もう一度は確認しない）
+    script_path = os.path.abspath(__file__)
+    url = DEFAULT_UPDATE_URL
+    try:
+        import json
+        with open(os.path.join(os.path.dirname(script_path), "config.json"), encoding="utf-8-sig") as f:
+            cfg = json.load(f)
+        if cfg.get("auto_update") is False:
+            _update_messages.append("AUTO UPDATE: disabled (config.json auto_update=false)")
+            return False
+        url = cfg.get("update_url") or url
+    except Exception:
+        pass  # config.json が無い・読めない場合は既定の配布元で続ける
+
+    try:
+        new_data = _download_update(url)
+        with open(script_path, "rb") as f:
+            old_data = f.read()
+        if new_data == old_data:
+            _update_messages.append("AUTO UPDATE: already up to date")
+            return False
+        # エラーページや途中で切れたファイルで上書きしないための確認
+        new_text = new_data.decode("utf-8")
+        if "class PDFHandler" not in new_text or "def _self_update" not in new_text:
+            raise ValueError("downloaded file does not look like auto_printer.py")
+        compile(new_text, script_path, "exec")  # 文法エラーがあれば差し替えない
+
+        import shutil
+        tmp_path = script_path + ".new"
+        with open(tmp_path, "wb") as f:
+            f.write(new_data)
+        shutil.copy2(script_path, script_path + ".bak")  # 手で戻せるよう前の版を残す
+        os.replace(tmp_path, script_path)
+        os.environ[_UPDATED_FROM_ENV] = _short_hash(old_data)
+        return True
+    except Exception as e:
+        _update_messages.append(f"AUTO UPDATE: skipped ({e})")
+        return False
+
+
+if __name__ == "__main__" and _self_update():
+    # 差し替えた新しいコードで、同じプロセスのまま起動し直す。
+    # （別プロセスにすると start_hidden.vbs の起動確認とずれるため）
+    import runpy
+    os.environ[_UPDATED_ENV] = "1"
+    runpy.run_path(os.path.abspath(__file__), run_name="__main__")
+    sys.exit(0)
+
 # DEBUG: Catch import errors immediately
 missing_packages = []
 try:
@@ -101,6 +196,17 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+# 自動更新の結果と、いま動いている版をログに残す（どの版が動いているか分かるように）
+for _msg in _update_messages:
+    logging.info(_msg)
+if os.environ.get(_UPDATED_FROM_ENV):
+    logging.info(f"AUTO UPDATE: updated from sha256 {os.environ[_UPDATED_FROM_ENV]}")
+try:
+    with open(os.path.abspath(__file__), "rb") as _f:
+        logging.info(f"VERSION: {APP_VERSION} (sha256 {_short_hash(_f.read())})")
+except Exception:
+    pass
 
 def log_info(message):
     """Log message in ASCII to avoid encoding issues"""
